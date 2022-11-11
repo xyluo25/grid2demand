@@ -56,7 +56,7 @@ def parse_linestring(string):
 
 def parse_time(string):
     '''Transform an HHMM time into the number of seconds after midnight.'''
-    hours = int(string[0:2])
+    hours = int(string[:2])
     mins = int(string[2:])
     return (3600.0 * hours) + (60.0 * mins)
 

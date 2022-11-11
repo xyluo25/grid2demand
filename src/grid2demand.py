@@ -82,8 +82,8 @@ class Agent:
         self.d_zone_id = int(d_zone_id)
         self.o_node_id = 0 # comments: randomly selected from activity nodes of a zone
         self.d_node_id = 0
-        self.path_node_seq_no_list = list() # comments: node id not node seq no
-        self.path_link_seq_no_list = list()
+        self.path_node_seq_no_list = []
+        self.path_link_seq_no_list = []
         self.current_link_seq_no_in_path = 0 # comments: not used
         self.path_cost = 0
         self.b_generated = False
@@ -147,46 +147,40 @@ def ReadNetworkFiles(input_folder=None):
         log_flag = 0
         for line in reader:
             node = Node()
-            node_id = line['node_id']
-            if node_id:
+            if node_id := line['node_id']:
                 node.id = int(node_id)
             else:
                 # print('Error: node_id is not defined in node.csv, please check it!')
                 logger.error("node_id is not defined in node.csv, please check it!")
                 sys.exit(0)
 
-            osm_node_id = line['osm_node_id']
-            if osm_node_id:
+            if osm_node_id := line['osm_node_id']:
                 node.osm_node_id = int(float(osm_node_id))
             else:
                 node.osm_node_id = None
 
-            activity_type = line['activity_type']
-            if activity_type:
+            if activity_type := line['activity_type']:
                 node.activity_type = str(activity_type)
-                if node.activity_type == 'residential':
-                    node.activity_location_tab = 'residential'
                 if node.activity_type == 'poi':
                     node.activity_location_tab = 'poi'
 
-            x_coord = line['x_coord']
-            if x_coord:
+                elif node.activity_type == 'residential':
+                    node.activity_location_tab = 'residential'
+            if x_coord := line['x_coord']:
                 node.x_coord = round(float(x_coord),7)
             else:
                 # print('Error: x_coord is not defined in node.csv, please check it!')
                 logger.error("x_coord is not defined in node.csv, please check it!")
                 sys.exit(0)
 
-            y_coord = line['y_coord']
-            if y_coord:
+            if y_coord := line['y_coord']:
                 node.y_coord = round(float(y_coord),7)
             else:
                 # print('Error: y_coord is not defined in node.csv, please check it!')
                 logger.error("y_coord is not defined in node.csv, please check it!")
                 sys.exit(0)
 
-            poi_id = line['poi_id']
-            if poi_id:
+            if poi_id := line['poi_id']:
                 node.poi_id = str(poi_id)
                 try:
                     # print(int(float(poi_id)))
@@ -194,8 +188,7 @@ def ReadNetworkFiles(input_folder=None):
                 except:
                     continue
 
-            boundary_flag = line['is_boundary']
-            if boundary_flag:
+            if boundary_flag := line['is_boundary']:
                 node.boundary_flag = int(boundary_flag)
                 if node.boundary_flag == 1:
                     node.activity_location_tab = 'boundary'
@@ -212,14 +205,13 @@ def ReadNetworkFiles(input_folder=None):
                 g_outside_boundary_node_list.append(node) # comments: outside boundary node
                 g_outside_boundary_node_id_index[node.id] = exclude_boundary_node_index
                 exclude_boundary_node_index += 1
-        if poi_flag == 0: 
-            if (log_flag == 0):
-                print('field poi_id is not in node.csv. Please check it!') 
-                logger.warning('field poi_id is NOT defined in node.csv. Please check node.csv! \
+        if poi_flag == 0 and (log_flag == 0):
+            print('field poi_id is not in node.csv. Please check it!')
+            logger.warning('field poi_id is NOT defined in node.csv. Please check node.csv! \
                     It could lead to empty demand volume and zero agent. \
                     Please ensure to POIs=True in osm2gmns: \
                     net = og.getNetFromOSMFile')
-                log_flag = 1
+            log_flag = 1
 
 
     with open(poi_filepath, errors='ignore') as fp:
@@ -234,8 +226,7 @@ def ReadNetworkFiles(input_folder=None):
                 logger.error("poi_id is not defined in poi.csv, please check it!")
                 sys.exit(0)
 
-            centroid = line['centroid']
-            if centroid:
+            if centroid := line['centroid']:
                 temp_centroid = str(centroid)
             else:
                 # print('Error: centroid is not defined in poi.csv, please check it!')
@@ -243,16 +234,14 @@ def ReadNetworkFiles(input_folder=None):
                 sys.exit(0)
             str_centroid = temp_centroid.replace('POINT (', '').replace(')', '').replace(' ', ';').strip().split(';')
 
-            x_coord = str_centroid[0]
-            if x_coord:
+            if x_coord := str_centroid[0]:
                 poi.x_coord = float(x_coord)
             else:
                 # print('Error: x_coord is not defined in poi.csv, please check it!')
                 logger.error("x_coord is not defined in poi.csv, please check it!")
                 sys.exit(0)
 
-            y_coord = str_centroid[1]
-            if y_coord:
+            if y_coord := str_centroid[1]:
                 poi.y_coord = float(y_coord)
             else:
                 # print('Error: y_coord is not defined in poi.csv, please check it!')
@@ -260,12 +249,14 @@ def ReadNetworkFiles(input_folder=None):
                 sys.exit(0)
 
 
-            area = line['area']
-            if area:
+            if area := line['area']:
                 area_meter = float(area)
             else:
                 # print('Error: area is not defined in poi.csv, please check it!')
-                logger.error('area is not defined for POI No.' + str(poi_id) + ' in poi.csv, please check it!')
+                logger.error(
+                    f'area is not defined for POI No.{str(poi_id)} in poi.csv, please check it!'
+                )
+
                 sys.exit(0)
 
             if area_meter > 90000:  # comments: a simple benchmark to exclude extra large poi nodes
@@ -276,8 +267,7 @@ def ReadNetworkFiles(input_folder=None):
                 area_feet = area_meter * 10.7639104  # comments: convert the area in square meters to square feet
                 # poi.area = area_feet  # comments: convert the area unit of normal poi nodes to square feet
 
-            building = line['building']
-            if building:
+            if building := line['building']:
                 poi.type = str(building)
 
 
@@ -289,6 +279,7 @@ def ReadNetworkFiles(input_folder=None):
 
 
 """PART 2  GRID GENERATION"""
+
 g_zone_list = []
 g_number_of_zones = 0
 g_zone_id_list = []
@@ -300,12 +291,10 @@ g_used_latitude = 0
 
 g_scale_list = [0.006, 0.005, 0.004, 0.003, 0.002, 0.001] # comments: default the scale for each grid zone
 g_degree_length_dict = {60: 55.8, 51: 69.47, 45: 78.85, 30: 96.49,
-                        0: 111.3}  
+                        0: 111.3}
 # comments: default longitudinal length (km) equivalent at selected latitude
 
-alphabet_list = []
-for letter in range(65, 91):
-    alphabet_list.append(chr(letter))
+alphabet_list = [chr(letter) for letter in range(65, 91)]
 
 
 def PartitionGrid(number_of_x_blocks=None,
