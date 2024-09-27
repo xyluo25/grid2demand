@@ -586,7 +586,7 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
     zone_dict_final = {k: create_dataclass_from_dict(
-        "POI", v) for k, v in zone_dict_final.items()}
+        "Zone", v) for k, v in zone_dict_final.items()}
 
     return zone_dict_final
 
@@ -652,7 +652,7 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
     zone_dict_final = {k: create_dataclass_from_dict(
-        "POI", v) for k, v in zone_dict_final.items()}
+        "Zone", v) for k, v in zone_dict_final.items()}
 
     return zone_dict_final
 
