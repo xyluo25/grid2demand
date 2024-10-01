@@ -367,6 +367,9 @@ def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
     args_list = [(node_id, node.as_dict(), zone_cp)
                  for node_id, node in node_cp.items()]
 
+    if verbose:
+        print(f"  : Parallel sync zone geometry and node using {cpu_cores} cpu cores.")
+
     with Pool(processes=cpu_cores) as pool:
         results = list(tqdm(pool.map(_sync_zones_geometry_with_node, args_list), total=len(args_list)))
         pool.close()
@@ -385,7 +388,7 @@ def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
     return {"zone_dict": zone_cp, "node_dict": node_cp}
 
 
-def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, verbose: bool = False) -> dict:
+def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
     """Synchronize zone in centroids and nodes to update zone_id attribute for nodes
 
     Args:
@@ -423,7 +426,10 @@ def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, verbose: bool 
     # Prepare data for multiprocessing
     args = [(node_id, node.as_dict(), multipoint_zone, zone_point_id) for node_id, node in node_cp.items()]
 
-    cpu_cores = pkg_settings["set_cpu_cores"]
+    # cpu_cores = pkg_settings["set_cpu_cores"]
+
+    if verbose:
+        print(f"  : Parallel sync zone centroid and node using {cpu_cores} cpu cores.")
 
     with Pool(cpu_cores) as pool:
         results = list(tqdm(pool.imap(_sync_zones_centroid_with_node, args), total=len(node_cp)))
@@ -493,7 +499,7 @@ def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
     return {"zone_dict": zone_cp, "poi_dict": poi_cp}
 
 
-def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, verbose: bool = False) -> dict:
+def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
     """Synchronize zone in centroids and nodes to update zone_id attribute for nodes
 
     Args:

@@ -117,10 +117,11 @@ class GRID2DEMAND:
 
         if self.verbose:
             print("  : Checking input directory...")
+
         if not os.path.isdir(self.input_dir):
             raise NotADirectoryError(f"Error: Input directory {self.input_dir} does not exist.")
 
-        # check if node, poi and poi files are in the input
+        # check if node, poi and zone files are in the input
         if self.node_file and not os.path.exists(os.path.join(self.input_dir, self.node_file)):
             raise FileNotFoundError(f"Error: File {self.node_file} does not exist in {self.input_dir}.")
 
@@ -430,8 +431,8 @@ class GRID2DEMAND:
             raise Exception(f"Error: Failed to read {self.zone_file}.") from e
 
         # update geometry or centroid
-        # sourcery skip: merge-nested-ifs
         if set(self.pkg_settings.get("zone_geometry_fields")).issubset(set(zone_columns)):
+            # we need to consider whether the geometry field is point or polygon
 
             # check geometry fields is valid from zone_df
             if not any(zone_df["geometry"].isnull()):
@@ -474,23 +475,32 @@ class GRID2DEMAND:
                 if include_polygon:
                     self.is_geometry = True
 
-        if set(self.pkg_settings.get("zone_centroid_fields")).issubset(set(zone_columns)):
+        # use elif to prioritize geometry
+        elif set(self.pkg_settings.get("zone_centroid_fields")).issubset(set(zone_columns)):
             self.is_centroid = True
 
         if not self.is_geometry and not self.is_centroid:
             raise Exception(f"Error: {self.zone_file} does not contain valid zone fields.")
 
         if self.verbose:
+            if self.is_geometry:
+                print("  : read zone by geometry.")
+            else:
+                print("  : read zone by centroid.")
+
             print("  : Generating zone dictionary...")
 
         # generate zone by centroid: zone_id, x_coord, y_coord
-        if self.is_centroid:
-            self.zone_dict = read_zone_by_centroid(
-                self.zone_file, self.pkg_settings.get("set_cpu_cores"))
-
         # generate zone by geometry: zone_id, geometry
-        elif self.is_geometry:
-            self.zone_dict = read_zone_by_geometry(self.zone_file, self.pkg_settings.get("set_cpu_cores"))
+        if self.is_geometry:
+            self.zone_dict = read_zone_by_geometry(self.zone_file,
+                                                   self.pkg_settings.get("set_cpu_cores"),
+                                                   verbose=self.verbose)
+
+        elif self.is_centroid:
+            self.zone_dict = read_zone_by_centroid(self.zone_file,
+                                                   self.pkg_settings.get("set_cpu_cores"),
+                                                   verbose=self.verbose)
 
         else:
             print(f"Error: {self.zone_file} does not contain valid zone fields.")
@@ -538,24 +548,31 @@ class GRID2DEMAND:
         # synchronize zone with node
         if hasattr(self, "node_dict"):
             print("  : Synchronizing zone with node...\n")
+
             if self.is_geometry:
                 try:
+                    print("  : zone geometry with node...")
                     zone_node_dict = sync_zone_geometry_and_node(self.zone_dict,
                                                                  self.node_dict,
                                                                  self.pkg_settings.get("set_cpu_cores"),
                                                                  verbose=self.verbose)
                     self.zone_dict = zone_node_dict.get('zone_dict')
                     self.node_dict = zone_node_dict.get('node_dict')
+
                 except Exception as e:
                     print("Could not synchronize zone with node.\n")
                     print(f"The error occurred: {e}")
+
             elif self.is_centroid:
                 try:
+                    print("  : zone centroid with node...")
                     zone_node_dict = sync_zone_centroid_and_node(self.zone_dict,
                                                                  self.node_dict,
+                                                                 self.pkg_settings.get("set_cpu_cores"),
                                                                  verbose=self.verbose)
                     self.zone_dict = zone_node_dict.get('zone_dict')
                     self.node_dict = zone_node_dict.get('node_dict')
+
                 except Exception as e:
                     print("Could not synchronize zone with node.\n")
                     print(f"The error occurred: {e}")
@@ -563,23 +580,31 @@ class GRID2DEMAND:
         # synchronize zone with poi
         if hasattr(self, "poi_dict"):
             print("  : Synchronizing zone with poi...\n")
+
             if self.is_geometry:
                 try:
+                    print("  : zone geometry with poi...")
                     zone_poi_dict = sync_zone_geometry_and_poi(self.zone_dict,
                                                                self.poi_dict,
-                                                               self.pkg_settings.get("set_cpu_cores"))
-                    self.zone_dict = zone_poi_dict.get('zone_dict')
-                    self.poi_dict = zone_poi_dict.get('poi_dict')
-                except Exception as e:
-                    print("Could not synchronize zone with poi.\n")
-                    print(f"The error occurred: {e}")
-            elif self.is_centroid:
-                try:
-                    zone_poi_dict = sync_zone_centroid_and_poi(self.zone_dict,
-                                                               self.poi_dict,
+                                                               self.pkg_settings.get("set_cpu_cores"),
                                                                verbose=self.verbose)
                     self.zone_dict = zone_poi_dict.get('zone_dict')
                     self.poi_dict = zone_poi_dict.get('poi_dict')
+
+                except Exception as e:
+                    print("Could not synchronize zone with poi.\n")
+                    print(f"The error occurred: {e}")
+
+            elif self.is_centroid:
+                try:
+                    print("  : zone centroid with poi...")
+                    zone_poi_dict = sync_zone_centroid_and_poi(self.zone_dict,
+                                                               self.poi_dict,
+                                                               self.pkg_settings.get("set_cpu_cores"),
+                                                               verbose=self.verbose)
+                    self.zone_dict = zone_poi_dict.get('zone_dict')
+                    self.poi_dict = zone_poi_dict.get('poi_dict')
+
                 except Exception as e:
                     print("Could not synchronize zone with poi.\n")
                     print(f"The error occurred: {e}")
