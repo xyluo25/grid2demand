@@ -14,7 +14,6 @@ from typing import Any
 
 import pandas as pd
 import shapely
-from pyproj import Transformer
 from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
 
@@ -25,6 +24,7 @@ from grid2demand.utils_lib.utils import (check_required_files_exist,
                                          create_dataclass_from_dict)
 from pyufunc import (func_running_time, path2linux,
                      get_filenames_by_ext,)
+import datetime
 
 # supporting functions for multiprocessing implementation
 
@@ -146,29 +146,6 @@ def _create_poi_from_dataframe(df_poi: pd.DataFrame) -> dict[int, POI]:
 
             # check if area is empty or not
             area = df_poi.loc[i, 'area']
-            if pd.isna(area) or not area:
-                geometry_shapely = shapely.from_wkt(df_poi.loc[i, 'geometry'])
-
-                # Set up a Transformer to convert from WGS 84 to UTM zone 18N (EPSG:32618)
-                transformer = Transformer.from_crs(
-                    "EPSG:4326", "EPSG:32618", always_xy=True)
-
-                # Transform the polygon's coordinates to UTM
-                transformed_coords = [transformer.transform(x, y) for x, y in geometry_shapely.exterior.coords]
-                transformed_polygon = shapely.Polygon(transformed_coords)
-
-                # square meters
-                area_sqm = transformed_polygon.area
-
-                # square feet
-                # area = area_sqm * 10.7639104
-
-                area = area_sqm
-
-            elif area > 90000:
-                area = 0
-            else:
-                pass
 
             # get poi id
             poi_id = int(df_poi.loc[i, 'poi_id'])
@@ -194,6 +171,7 @@ def _create_poi_from_dataframe(df_poi: pd.DataFrame) -> dict[int, POI]:
             #     geometry=df_poi.loc[i, "geometry"]
             # )
             poi_dict[poi_id] = asdict(poi)
+
         except Exception as e:
             try:
                 print(f"  : Unable to create poi: {poi_id}, error: {e}")
@@ -355,6 +333,7 @@ def _create_zone_from_dataframe_by_centroid(df_zone: pd.DataFrame) -> dict[int, 
             # )
 
             zone_dict[zone_id] = asdict(zone)
+
         except Exception as e:
             print(f"  : Unable to create zone: {zone_id}, error: {e}")
     return zone_dict
@@ -414,6 +393,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
         # Get total rows in poi.csv and calculate total chunks
         total_rows = sum(1 for _ in open(node_file)) - 1  # Exclude header row
         total_chunks = total_rows // chunk_size + 1
+
         df_node_chunk = pd.read_csv(node_file, usecols=node_required_cols, chunksize=chunk_size)
     except Exception as e:
         raise Exception(f"Error: Unable to read node.csv file for: {e}")
@@ -430,6 +410,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
         pool.close()
         pool.join()
 
+    # Parallel processing using pool
     # results = process_map(_create_node_from_dataframe, df_node_chunk, max_workers=cpu_cores)
 
     for node_dict in results:
@@ -438,7 +419,8 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     if verbose:
         print(f"  : Successfully loaded node.csv: {len(node_dict_final)} Nodes loaded.")
 
-    node_dict_final = {k: create_dataclass_from_dict("Node", v) for k, v in node_dict_final.items()}
+    # time consuming creating dynamic dataclass
+    # node_dict_final = {k: create_dataclass_from_dict("Node", v) for k, v in node_dict_final.items()}
 
     return node_dict_final
 
@@ -501,16 +483,19 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
 
     with Pool(cpu_cores) as pool:
         # results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
-        try:
-            results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
-        except Exception:
-            try:
-                results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
-            except Exception as e:
-                raise Exception(f"Error: {e}")
+        results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
+
+        # try:
+        #     results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
+        # except Exception:
+        #     try:
+        #         results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
+        #     except Exception as e:
+        #         raise Exception(f"Error: {e}")
         pool.close()
         pool.join()
 
+    # Parallel processing using Pool
     # results = process_map(_create_poi_from_dataframe, df_poi_chunk, max_workers=cpu_cores)
 
     for poi_dict in results:
@@ -519,8 +504,8 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
     if verbose:
         print(f"  : Successfully loaded poi.csv: {len(poi_dict_final)} POIs loaded.")
 
-    poi_dict_final = {k: create_dataclass_from_dict(
-        "POI", v) for k, v in poi_dict_final.items()}
+    # time consuming creating dynamic dataclass
+    # poi_dict_final = {k: create_dataclass_from_dict("POI", v) for k, v in poi_dict_final.items()}
 
     return poi_dict_final
 
@@ -565,8 +550,15 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
             raise FileNotFoundError(f"Required column: {col} is not in zone.csv. \
                 Please make sure you have {zone_required_cols} in zone.csv.")
 
-    # load zone.csv with specified columns and chunksize for iterations
-    df_zone_chunk = pd.read_csv(zone_file, usecols=zone_required_cols, chunksize=chunk_size)
+    try:
+        # Get total rows in poi.csv and calculate total chunks
+        total_rows = sum(1 for _ in open(zone_file)) - 1  # Exclude header row
+        total_chunks = total_rows // chunk_size + 1
+
+        # load zone.csv with specified columns and chunksize for iterations
+        df_zone_chunk = pd.read_csv(zone_file, usecols=zone_required_cols, chunksize=chunk_size)
+    except Exception as e:
+        raise Exception(f"Error: Unable to read zone.csv file for: {e}")
 
     # Parallel processing using Pool
     if verbose:
@@ -575,7 +567,8 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     zone_dict_final = {}
 
     with Pool(cpu_cores) as pool:
-        results = pool.map(_create_zone_from_dataframe_by_geometry, df_zone_chunk)
+        # results = pool.map(_create_zone_from_dataframe_by_geometry, df_zone_chunk)
+        results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_geometry, df_zone_chunk), total=total_chunks))
         pool.close()
         pool.join()
 
@@ -585,8 +578,8 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     if verbose:
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
-    zone_dict_final = {k: create_dataclass_from_dict(
-        "Zone", v) for k, v in zone_dict_final.items()}
+    # dynamic dataclass: slow
+    # zone_dict_final = {k: create_dataclass_from_dict("Zone", v) for k, v in zone_dict_final.items()}
 
     return zone_dict_final
 
@@ -631,8 +624,15 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
             raise FileNotFoundError(f"Required column: {col} is not in zone.csv. \
                 Please make sure you have {zone_required_cols} in zone.csv.")
 
-    # load zone.csv with specified columns and chunksize for iterations
-    df_zone_chunk = pd.read_csv(zone_file, usecols=zone_required_cols, chunksize=chunk_size)
+    try:
+        # Get total rows in poi.csv and calculate total chunks
+        total_rows = sum(1 for _ in open(zone_file)) - 1  # Exclude header row
+        total_chunks = total_rows // chunk_size + 1
+
+        # load zone.csv with specified columns and chunksize for iterations
+        df_zone_chunk = pd.read_csv(zone_file, usecols=zone_required_cols, chunksize=chunk_size)
+    except Exception as e:
+        raise Exception(f"  : Unable to read zone.csv for {e}")
 
     # Parallel processing using Pool
     if verbose:
@@ -641,7 +641,8 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     zone_dict_final = {}
 
     with Pool(cpu_cores) as pool:
-        results = pool.map(_create_zone_from_dataframe_by_centroid, df_zone_chunk)
+        # results = pool.map(_create_zone_from_dataframe_by_centroid, df_zone_chunk)
+        results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_centroid, df_zone_chunk), total=total_chunks))
         pool.close()
         pool.join()
 
@@ -651,8 +652,8 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     if verbose:
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
-    zone_dict_final = {k: create_dataclass_from_dict(
-        "Zone", v) for k, v in zone_dict_final.items()}
+    # dynamic dataclass: slow
+    # zone_dict_final = {k: create_dataclass_from_dict("Zone", v) for k, v in zone_dict_final.items()}
 
     return zone_dict_final
 
