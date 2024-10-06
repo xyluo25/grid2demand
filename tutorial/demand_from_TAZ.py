@@ -25,7 +25,7 @@ if __name__ == "__main__":
     net = gd.GRID2DEMAND(input_dir=input_dir, verbose=False)
 
     # Step 1: Load node and poi data from input directory
-    # net.load_network()
+    net.load_network()
 
     # Step 2: Generate zone dictionary from zone.csv file
     net.taz2zone()

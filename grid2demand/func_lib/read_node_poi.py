@@ -25,6 +25,9 @@ from grid2demand.utils_lib.utils import (check_required_files_exist,
 from pyufunc import (func_running_time, path2linux,
                      get_filenames_by_ext,)
 import datetime
+from joblib import Parallel, delayed
+import itertools
+
 
 # supporting functions for multiprocessing implementation
 
@@ -401,20 +404,24 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     if verbose:
         print(f"  : Parallel creating Nodes using Pool with {cpu_cores} CPUs. Please wait...")
 
-    node_dict_final = {}
+    # node_dict_final = {}
+    # # Parallel processing using Pool
+    # with Pool(cpu_cores) as pool:
+    #     # results = pool.map(_create_node_from_dataframe, df_node_chunk)
+    #     results = list(tqdm(pool.imap(_create_node_from_dataframe, df_node_chunk), total=total_chunks))
+    #     pool.close()
+    #     pool.join()
+    # # Parallel processing using pool
+    # # results = process_map(_create_node_from_dataframe, df_node_chunk, max_workers=cpu_cores)
 
-    # Parallel processing using Pool
-    with Pool(cpu_cores) as pool:
-        # results = pool.map(_create_node_from_dataframe, df_node_chunk)
-        results = list(tqdm(pool.imap(_create_node_from_dataframe, df_node_chunk), total=total_chunks))
-        pool.close()
-        pool.join()
+    # Parallel processing using joblib with tqdm for progress tracking
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(_create_node_from_dataframe)(chunk)
+        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="Processing chunks")
+    )
 
-    # Parallel processing using pool
-    # results = process_map(_create_node_from_dataframe, df_node_chunk, max_workers=cpu_cores)
-
-    for node_dict in results:
-        node_dict_final.update(node_dict)
+    # Combine results using itertools.chain for efficiency
+    node_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
     if verbose:
         print(f"  : Successfully loaded node.csv: {len(node_dict_final)} Nodes loaded.")
@@ -479,27 +486,20 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
     if verbose:
         print(f"  : Parallel creating POIs using Pool with {cpu_cores} CPUs. Please wait...")
 
-    poi_dict_final = {}
+    # poi_dict_final = {}
 
-    with Pool(cpu_cores) as pool:
-        # results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
-        results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
+    # with Pool(cpu_cores) as pool:
+    #     # results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
+    #     results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
+    #     pool.close()
+    #     pool.join()
 
-        # try:
-        #     results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
-        # except Exception:
-        #     try:
-        #         results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
-        #     except Exception as e:
-        #         raise Exception(f"Error: {e}")
-        pool.close()
-        pool.join()
-
-    # Parallel processing using Pool
-    # results = process_map(_create_poi_from_dataframe, df_poi_chunk, max_workers=cpu_cores)
-
-    for poi_dict in results:
-        poi_dict_final.update(poi_dict)
+    # Parallel processing using joblib with tqdm for progress tracking
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(_create_poi_from_dataframe)(chunk)
+        for chunk in tqdm(df_poi_chunk, total=total_chunks, desc="Processing chunks")
+    )
+    poi_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
     if verbose:
         print(f"  : Successfully loaded poi.csv: {len(poi_dict_final)} POIs loaded.")
@@ -564,16 +564,22 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     if verbose:
         print(f"  : Parallel creating Zones using Pool with {cpu_cores} CPUs. Please wait...")
 
-    zone_dict_final = {}
+    # zone_dict_final = {}
 
-    with Pool(cpu_cores) as pool:
-        # results = pool.map(_create_zone_from_dataframe_by_geometry, df_zone_chunk)
-        results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_geometry, df_zone_chunk), total=total_chunks))
-        pool.close()
-        pool.join()
+    # with Pool(cpu_cores) as pool:
+    #     # results = pool.map(_create_zone_from_dataframe_by_geometry, df_zone_chunk)
+    #     results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_geometry, df_zone_chunk), total=total_chunks))
+    #     pool.close()
+    #     pool.join()
+    # for zone_dict in results:
+    #     zone_dict_final.update(zone_dict)
 
-    for zone_dict in results:
-        zone_dict_final.update(zone_dict)
+    # Parallel processing using joblib with tqdm for progress tracking
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(_create_zone_from_dataframe_by_geometry)(chunk)
+        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="Processing zone geometry")
+    )
+    zone_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
     if verbose:
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
@@ -638,16 +644,23 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     if verbose:
         print(f"  : Parallel creating Zones using Pool with {cpu_cores} CPUs. Please wait...")
 
-    zone_dict_final = {}
+    # zone_dict_final = {}
 
-    with Pool(cpu_cores) as pool:
-        # results = pool.map(_create_zone_from_dataframe_by_centroid, df_zone_chunk)
-        results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_centroid, df_zone_chunk), total=total_chunks))
-        pool.close()
-        pool.join()
+    # with Pool(cpu_cores) as pool:
+    #     # results = pool.map(_create_zone_from_dataframe_by_centroid, df_zone_chunk)
+    #     results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_centroid, df_zone_chunk), total=total_chunks))
+    #     pool.close()
+    #     pool.join()
+    # for zone_dict in results:
+    #     zone_dict_final.update(zone_dict)
 
-    for zone_dict in results:
-        zone_dict_final.update(zone_dict)
+    # Parallel processing using joblib with tqdm for progress tracking
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(_create_zone_from_dataframe_by_centroid)(chunk)
+        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="Processing zone geometry")
+    )
+    zone_dict_final = dict(itertools.chain.from_iterable(
+        result.items() for result in results))
 
     if verbose:
         print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
