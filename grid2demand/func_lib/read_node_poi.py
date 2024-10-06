@@ -90,19 +90,6 @@ def _create_node_from_dataframe(df_node: pd.DataFrame) -> dict[int, Node]:
             node.id = node_id
             node._zone_id = _zone_id
             node.geometry = shapely.Point(x_coord, y_coord)
-
-            # node = Node(
-            #     id=node_id,
-            #     # activity_type=activity_type,
-            #     # ctrl_type=df_node.loc[i, 'ctrl_type'],
-            #     x_coord=x_coord,
-            #     y_coord=y_coord,
-            #     # poi_id=df_node.loc[i, 'poi_id'],
-            #     # is_boundary=is_boundary,
-            #     geometry=shapely.Point(x_coord, y_coord),
-            #     _zone_id=_zone_id
-            # )
-
             node_dict[node_id] = asdict(node)
 
         except Exception as e:
@@ -162,17 +149,6 @@ def _create_poi_from_dataframe(df_poi: pd.DataFrame) -> dict[int, POI]:
             poi.x_coord = centroid.x
             poi.y_coord = centroid.y
             poi.area = area
-
-            # poi = POI(
-            #     id=df_poi.loc[i, 'poi_id'],
-            #     x_coord=centroid.x,
-            #     y_coord=centroid.y,
-            #     area=area,  # square feet: area * 10.7639104
-            #     building=df_poi.loc[i, 'building'] or "",
-            #     amenity=df_poi.loc[i, 'amenity'] or "",
-            #     centroid=df_poi.loc[i, 'centroid'],
-            #     geometry=df_poi.loc[i, "geometry"]
-            # )
             poi_dict[poi_id] = asdict(poi)
 
         except Exception as e:
@@ -238,26 +214,6 @@ def _create_zone_from_dataframe_by_geometry(df_zone: pd.DataFrame) -> dict[int, 
             zone.y_min = zone_geometry_shapely.bounds[1]
             zone.x_max = zone_geometry_shapely.bounds[2]
             zone.y_max = zone_geometry_shapely.bounds[3]
-
-            # zone = Zone(
-            #     id=zone_id,
-            #     name=zone_id,
-            #     x_coord=x_coord,
-            #     y_coord=y_coord,
-            #     centroid=centroid_wkt,
-            #     x_max=zone_geometry_shapely.bounds[2],
-            #     x_min=zone_geometry_shapely.bounds[0],
-            #     y_max=zone_geometry_shapely.bounds[3],
-            #     y_min=zone_geometry_shapely.bounds[1],
-            #     node_id_list=[],
-            #     poi_id_list=[],
-            #     production=0,
-            #     attraction=0,
-            #     production_fixed=0,
-            #     attraction_fixed=0,
-            #     geometry=zone_geometry
-            # )
-
             zone_dict[zone_id] = asdict(zone)
         except Exception as e:
             print(f"  : Unable to create zone: {zone_id}, error: {e}")
@@ -273,6 +229,7 @@ def _create_zone_from_dataframe_by_centroid(df_zone: pd.DataFrame) -> dict[int, 
     Returns:
         dict[int, Zone]: a dict of Zones.{zone_id: Zone}
     """
+
     df_zone = df_zone.reset_index(drop=True)
     col_names = df_zone.columns.tolist()
 
@@ -319,22 +276,6 @@ def _create_zone_from_dataframe_by_centroid(df_zone: pd.DataFrame) -> dict[int, 
             zone.name = zone_id
             zone.centroid = centroid_wkt
             zone.geometry = zone_geometry
-
-            # zone = Zone(
-            #     id=zone_id,
-            #     name=zone_id,
-            #     x_coord=x_coord,
-            #     y_coord=y_coord,
-            #     centroid=centroid_wkt,
-            #     node_id_list=[],
-            #     poi_id_list=[],
-            #     production=0,
-            #     attraction=0,
-            #     production_fixed=0,
-            #     attraction_fixed=0,
-            #     geometry=zone_geometry
-            # )
-
             zone_dict[zone_id] = asdict(zone)
 
         except Exception as e:
@@ -404,21 +345,10 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     if verbose:
         print(f"  : Parallel creating Nodes using Pool with {cpu_cores} CPUs. Please wait...")
 
-    # node_dict_final = {}
-    # # Parallel processing using Pool
-    # with Pool(cpu_cores) as pool:
-    #     # results = pool.map(_create_node_from_dataframe, df_node_chunk)
-    #     results = list(tqdm(pool.imap(_create_node_from_dataframe, df_node_chunk), total=total_chunks))
-    #     pool.close()
-    #     pool.join()
-    # # Parallel processing using pool
-    # # results = process_map(_create_node_from_dataframe, df_node_chunk, max_workers=cpu_cores)
-
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_node_from_dataframe)(chunk)
-        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="Processing chunks")
-    )
+        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="Processing chunks"))
 
     # Combine results using itertools.chain for efficiency
     node_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
@@ -486,19 +416,11 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
     if verbose:
         print(f"  : Parallel creating POIs using Pool with {cpu_cores} CPUs. Please wait...")
 
-    # poi_dict_final = {}
-
-    # with Pool(cpu_cores) as pool:
-    #     # results = pool.map(_create_poi_from_dataframe, df_poi_chunk)
-    #     results = list(tqdm(pool.imap(_create_poi_from_dataframe, df_poi_chunk), total=total_chunks))
-    #     pool.close()
-    #     pool.join()
-
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_poi_from_dataframe)(chunk)
-        for chunk in tqdm(df_poi_chunk, total=total_chunks, desc="Processing chunks")
-    )
+        for chunk in tqdm(df_poi_chunk, total=total_chunks, desc="Processing chunks"))
+
     poi_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
     if verbose:
@@ -564,21 +486,11 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     if verbose:
         print(f"  : Parallel creating Zones using Pool with {cpu_cores} CPUs. Please wait...")
 
-    # zone_dict_final = {}
-
-    # with Pool(cpu_cores) as pool:
-    #     # results = pool.map(_create_zone_from_dataframe_by_geometry, df_zone_chunk)
-    #     results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_geometry, df_zone_chunk), total=total_chunks))
-    #     pool.close()
-    #     pool.join()
-    # for zone_dict in results:
-    #     zone_dict_final.update(zone_dict)
-
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_zone_from_dataframe_by_geometry)(chunk)
-        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="Processing zone geometry")
-    )
+        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="Processing zone geometry"))
+
     zone_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
     if verbose:
@@ -643,16 +555,6 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     # Parallel processing using Pool
     if verbose:
         print(f"  : Parallel creating Zones using Pool with {cpu_cores} CPUs. Please wait...")
-
-    # zone_dict_final = {}
-
-    # with Pool(cpu_cores) as pool:
-    #     # results = pool.map(_create_zone_from_dataframe_by_centroid, df_zone_chunk)
-    #     results = list(tqdm(pool.imap(_create_zone_from_dataframe_by_centroid, df_zone_chunk), total=total_chunks))
-    #     pool.close()
-    #     pool.join()
-    # for zone_dict in results:
-    #     zone_dict_final.update(zone_dict)
 
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
