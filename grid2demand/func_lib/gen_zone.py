@@ -9,14 +9,17 @@ from __future__ import absolute_import
 import itertools
 import copy
 from multiprocessing import Pool
+from multiprocessing import Manager
 
 import pandas as pd
 import shapely
 import numpy as np
 import shapely.geometry
 from shapely.strtree import STRtree
+from joblib import Parallel, delayed
 from tqdm import tqdm
 from pyufunc import (calc_distance_on_unit_sphere,
+                     calc_distance_on_unit_haversine,
                      cvt_int_to_alpha,
                      func_running_time,
                      find_closest_point)
@@ -24,6 +27,9 @@ from pyufunc import (calc_distance_on_unit_sphere,
 from grid2demand.utils_lib.net_utils import Zone, Node
 from grid2demand.utils_lib.pkg_settings import pkg_settings
 from tqdm.contrib.concurrent import process_map
+import datetime
+import random
+import math
 
 
 # supporting functions
@@ -169,48 +175,8 @@ def _sync_zones_centroid_with_poi(args: tuple) -> tuple:
     zone_id = zone_point_id[closest_zone_point]
     return poi_id, zone_id
 
-
-def _distance_calculation(chunk_args: list, df_zone) -> tuple:
-    # i, j, df_zone = args
-    # return (
-    #     (df_zone.loc[i, 'name'], df_zone.loc[j, 'name']),
-    #     {
-    #         "o_zone_id": df_zone.loc[i, 'id'],
-    #         "o_zone_name": df_zone.loc[i, 'name'],
-    #         "d_zone_id": df_zone.loc[j, 'id'],
-    #         "d_zone_name": df_zone.loc[j, 'name'],
-    #         "dist_km": calc_distance_on_unit_sphere(
-    #             df_zone.loc[i, 'centroid'],
-    #             df_zone.loc[j, 'centroid'],
-    #             unit='km'),
-    #         "volume": 0,
-    #         "geometry": shapely.LineString(
-    #             [df_zone.loc[i, 'centroid'], df_zone.loc[j, 'centroid']]),
-    #     }
-    # )
-    results = []
-    for i, j in chunk_args:
-        results.append(
-            (
-                (df_zone.loc[i, 'name'], df_zone.loc[j, 'name']),
-                {
-                    "o_zone_id": df_zone.loc[i, 'id'],
-                    "o_zone_name": df_zone.loc[i, 'name'],
-                    "d_zone_id": df_zone.loc[j, 'id'],
-                    "d_zone_name": df_zone.loc[j, 'name'],
-                    "dist_km": calc_distance_on_unit_sphere(
-                        df_zone.loc[i, 'centroid'],
-                        df_zone.loc[j, 'centroid']),
-                    "volume": 0,
-                    "geometry": shapely.LineString(
-                        [df_zone.loc[i, 'centroid'], df_zone.loc[j, 'centroid']]),
-                }
-            )
-        )
-    return results
-
-
 # Main functions
+
 
 @func_running_time
 def net2zone(node_dict: dict[int, Node],
@@ -678,111 +644,178 @@ def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
 
 
 @func_running_time
-def calc_zone_od_matrix(zone_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict[tuple[str, str], dict]:
-    """Calculate the zone-to-zone distance matrix
-    Calculate the zone-to-zone distance matrix in chunks to handle large datasets using NumPy for optimization.
+def calc_zone_od_matrix(zone_dict: dict,
+                        *,
+                        cpu_cores: int = -1,
+                        sel_orig_zone_id: list = [],
+                        sel_dest_zone_id: list = [],
+                        pct: float = 0.1, verbose: bool = False) -> dict[tuple[str, str], float]:
+    """Calculate the zone-to-zone distance matrix in chunks to handle large datasets.
 
     Args:
         zone_dict (dict): Zone cells
+        cpu_cores (int): number of cpu cores
+        sel_orig_zone_id (list): selected origin zones for calculation
+        sel_dest_zone_od (list): selected destination zones for calculation
+        pct: the percentage to randomly select zones from given zone_dict.
+        verbose: whether to printout processing messages.
 
     Returns:
         dict: the zone-to-zone distance matrix
     """
+    # Prepare arguments for the pool
+    print(f"  : Parallel calculating zone-to-zone distance matrix using Pool with {cpu_cores} CPUs. Please wait...")
 
-    # convert zone_dict to dataframe
-    df_zone = pd.DataFrame(zone_dict.values())
+    # deepcopy the origin dictionary to avoid potential error.
+    zone_inside = copy.deepcopy(zone_dict)
+    total_zones = len(zone_inside)
 
-    # convert centroid from str to shapely.geometry.Point
-    if isinstance(df_zone.loc[0, 'centroid'], str):
-        df_zone['centroid'] = df_zone["centroid"].apply(shapely.from_wkt)
+    # define selected_zone_id
+    selected_zone_id = []
 
-    len_df_zone = len(df_zone)
-
-    # Generator for combinations (upper triangle of the matrix)
-    # def combinations_generator():
-    #     yield from itertools.combinations_with_replacement(range(len_df_zone), 2)
-
-    # Build a spatial index using the centroids of the zones
-    zone_geometries = [df_zone.loc[i, 'centroid'] for i in range(len_df_zone)]
-    spatial_index = STRtree(zone_geometries)
-
-    # Function to get nearby zones (those within a certain bounding box distance)
-    def get_nearby_zone_pairs(i):
-        zone_geom = zone_geometries[i]
-        # Get nearby zones using spatial index
-        nearby_zones = spatial_index.query(zone_geom)
-        return [(i, j) for j in range(len_df_zone) if zone_geometries[j] in nearby_zones and i <= j]
-
-    dist_dict = {}
     # Prepare node batches for multiprocessing
     chunk_size = pkg_settings["data_chunk_size"]
-    # args_list = [(i, j, df_zone) for i, j in itertools.product(range(len_df_zone), range(len_df_zone))]
-    # args_list = [(i, j, df_zone) for i, j in itertools.combinations_with_replacement(range(len_df_zone), 2)]
 
-    # Prepare arguments for the pool
+    # not sel_orig_zone_id and sel_dest_zone_id are not specified
+    # use pct to randomly select zones from zone_inside
+    if not sel_orig_zone_id and not sel_dest_zone_id:
+
+        # Calculate the number of keys to select based on the given percentage
+        num_keys_to_select = int(total_zones * pct)
+
+        # Randomly select keys from the dictionary
+        selected_keys = random.sample(list(zone_inside.keys()), num_keys_to_select)
+
+        # Create a sub-dictionary with the selected keys
+        zone_inside = {key: zone_inside[key] for key in selected_keys}
+        print(f"  : Randomly select {num_keys_to_select} zones from {pct * 100} % of {total_zones}")
+
+        selected_zone_id = list(zone_inside.keys())
+
+    # if origin and destination zones are specified
+    # origin -> all, plus all -> destination, replace duplicated pairs
+    elif sel_orig_zone_id and sel_dest_zone_id:
+        selected_zone_id = list(set(sel_orig_zone_id + sel_dest_zone_id))
+
+    # if only origin zones specified, origin -> all pairs
+    elif sel_orig_zone_id:
+        selected_zone_id = list(set(sel_orig_zone_id))
+
+    # if only destination zones specified, all -> destinations pairs
+    else:
+        selected_zone_id = list(set(sel_dest_zone_id))
+
+    # convert zone_inside to dataframe with only id, x_coord and y_coord
+    selected_data = [(zone['id'], zone['x_coord'], zone['y_coord'])
+                     for zone in zone_inside.values()]
+    df_zone_coords = pd.DataFrame(selected_data, columns=['id', 'x_coord', 'y_coord'])
+
+    # crate selected df
+    df_zone_coords_selected = df_zone_coords[df_zone_coords["id"].isin(selected_zone_id)]
+
+    # calculate total OD combinations from given number of zones
+    num_selected_zones = df_zone_coords.shape[0]
+
     if verbose:
-        print(f"  : Parallel calculating zone-to-zone distance matrix using Pool with {cpu_cores} CPUs. Please wait...")
+        print("  : Generate OD combinations...")
 
-    with Pool(processes=cpu_cores) as pool:
-        # Distribute work to the pool
-        # results = list(tqdm(pool.starmap(_distance_calculation, args_list), total=len(args_list)))
-        # pool.close()
-        # pool.join()
+    # Generate OD combinations using combinations_with_replacement
+    if not sel_orig_zone_id and not sel_dest_zone_id:
+        combinations = itertools.combinations(df_zone_coords.itertuples(index=False), 2)
+        total_combinations = math.comb(num_selected_zones + 1, 2)
 
-        # chunk = list(itertools.islice(combinations_generator(), chunk_size))
-        # pbar = tqdm(total=(len_df_zone * (len_df_zone + 1)) // 2)
+    else:
+        # Define a function to process a combination
+        def process_combinations(chunk):
+            unique_pairs = set()
+            for row1, row2 in chunk:
+                # Use frozenset to eliminate ordering differences
+                if row1 != row2:
+                    row_pair = frozenset([row1, row2])
+                    unique_pairs.add(row_pair)
+            return unique_pairs
 
-        # Generate pairs using the spatial index, ensuring we calculate only for close zones
-        zone_pairs = []
-        for i in range(len_df_zone):
-            zone_pairs.extend(get_nearby_zone_pairs(i))
+        # Create combinations between rows of df1 and df2
+        combinations = list(itertools.product(df_zone_coords_selected.itertuples(index=False),
+                                              df_zone_coords.itertuples(index=False)))
 
-        chunk = list(itertools.islice(iter(zone_pairs), chunk_size))
-        pbar = tqdm(total=len(zone_pairs))
+        # Split combinations into chunks for parallel processing
+        chunks = [combinations[i:i + chunk_size] for i in range(0, len(combinations), chunk_size)]
 
-        while chunk:
-            # Process each chunk in parallel
-            results = pool.starmap(_distance_calculation, [(chunk, df_zone)])
+        # Use joblib to parallelize the processing of combinations
+        results = Parallel(n_jobs=cpu_cores)(
+            delayed(process_combinations)(chunk) for chunk in chunks
+        )
 
-            # Update the dictionary with the results
-            for result_chunk in results:
-                for ((o_name, d_name), result) in result_chunk:
-                    dist_dict[(o_name, d_name)] = result
-                    dist_dict[(d_name, o_name)] = {
-                        "o_zone_id": result["d_zone_id"],
-                        "o_zone_name": result["d_zone_name"],
-                        "d_zone_id": result["o_zone_id"],
-                        "d_zone_name": result["o_zone_name"],
-                        "dist_km": result["dist_km"],
-                        "volume": result["volume"],
-                        "geometry": shapely.LineString([result["geometry"].coords[1], result["geometry"].coords[0]]),
-                    }
+        # Merge results from all workers into a single set
+        combinations = set()
+        for result in results:
+            combinations.update(result)
+        total_combinations = len(combinations)
 
-            # Get the next chunk
-            chunk = list(itertools.islice(iter(zone_pairs), chunk_size))
-            pbar.update(len(chunk))
+    selected_combinations = list(tqdm(itertools.islice(combinations, total_combinations),
+                                      total=total_combinations, desc="Generate OD Combinations"))
 
-        pool.close()
-        pool.join()
-        pbar.close()
+    # printout message to inform total number of zones and total number of combinations
+    print(f"  : Total zones {num_selected_zones}, will generate OD combinations {total_combinations}.")
 
-    # Gather results
-    # dist_dict = dict(results)
+    if verbose:
+        print("  : Extract OD coordinates from zones...")
 
-    # Gather results in both directions (A->B and B->A)
+    # Extract latitudes and longitudes for OD pairs in parallel
+    def extract_coordinates(zone_pair):
+        zone1, zone2 = zone_pair
+        return (zone1.y_coord, zone1.x_coord, zone2.y_coord, zone2.x_coord, str(zone1.id), str(zone2.id))
 
-    # for ((o_name, d_name), result) in results:
-    #     dist_dict[(o_name, d_name)] = result
-    #     dist_dict[(d_name, o_name)] = {
-    #         "o_zone_id": result["d_zone_id"],
-    #         "o_zone_name": result["d_zone_name"],
-    #         "d_zone_id": result["o_zone_id"],
-    #         "d_zone_name": result["o_zone_name"],
-    #         "dist_km": result["dist_km"],
-    #         "volume": result["volume"],
-    #         "geometry": shapely.LineString([result["geometry"].coords[1], result["geometry"].coords[0]]),
-    #     }
+    extracted_data = Parallel(n_jobs=cpu_cores)(delayed(extract_coordinates)(
+        zone_pair) for zone_pair in tqdm(selected_combinations, desc="Extract OD Coordinates from zones"))
+
+    if verbose:
+        print("  : Prepare OD longitudes and latitudes from combinations for parallel computing...")
+
+    # Initialize empty numpy arrays and mapping dictionary
+    zone_od_dist = {}
+
+    # Extract latitudes, longitudes, and zone pairs
+    lat1, lon1, lat2, lon2, zone_o_str, zone_d_str = zip(*extracted_data)
+
+    # Create the OD DataFrame
+    df_od = pd.DataFrame({
+        'lat1': lat1,
+        'lon1': lon1,
+        'lat2': lat2,
+        'lon2': lon2})
+
+    # Split dataset into batches
+    batches = [df_od.iloc[i:i + chunk_size]
+               for i in range(0, len(df_od), chunk_size)]
+
+    # Batch processing function
+    def process_batch(batch):
+        lat1, lon1, lat2, lon2 = batch
+        return calc_distance_on_unit_haversine(lat1, lon1, lat2, lon2)
+
+    # Define a function that processes each batch in parallel
+    def parallel_process_batches(batches):
+        # Use Joblib to process batches in parallel
+        results = Parallel(n_jobs=cpu_cores)(delayed(process_batch)(
+            (batch['lat1'].values, batch['lon1'].values, batch['lat2'].values, batch['lon2'].values))
+            for batch in tqdm(batches, desc="Calculate Distance"))
+        return np.concatenate(results)
+
+    # calculate the distance
+    distances = parallel_process_batches(batches)
+
+    # od paris
+    print("  : preparing zone_od_dist...")
+    df_od_dist = pd.DataFrame()
+    df_od_dist["zone_o"] = zone_o_str
+    df_od_dist["zone_d"] = zone_d_str
+    df_od_dist["dist"] = distances
+
+    zone_od_dist = df_od_dist.set_index(["zone_o", "zone_d"])["dist"].to_dict()
 
     if verbose:
         print("  : Successfully calculated zone-to-zone distance matrix")
-    return dist_dict
+
+    return zone_od_dist

@@ -22,13 +22,15 @@ if __name__ == "__main__":
     input_dir = r"C:\Users\xyluo25\anaconda3_workspace\001_GitHub\grid2demand\datasets\demand_from_TAZ\poi_02"
 
     # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir, verbose=True)
+    net = gd.GRID2DEMAND(input_dir=input_dir, verbose=False)
 
     # Step 1: Load node and poi data from input directory
-    net.load_network()
+    # net.load_network()
 
     # Step 2: Generate zone dictionary from zone.csv file
     net.taz2zone()
+
+    net.calc_zone_od_distance_matrix()
 
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()

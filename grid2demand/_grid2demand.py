@@ -614,7 +614,12 @@ class GRID2DEMAND:
                 "node_dict": self.node_dict,
                 "poi_dict": self.poi_dict} if return_value else None
 
-    def calc_zone_od_distance_matrix(self, zone_dict: dict = "", return_value: bool = False) -> dict[tuple, float]:
+    def calc_zone_od_distance_matrix(self, zone_dict: dict = "",
+                                     *,
+                                     sel_orig_zone_id: list = [],
+                                     sel_dest_zone_id: list = [],
+                                     pct: float = 0.1,
+                                     return_value: bool = False) -> dict[tuple, float]:
         """calculate zone-to-zone od distance matrix
 
         Args:
@@ -630,7 +635,10 @@ class GRID2DEMAND:
             self.zone_dict = zone_dict
 
         self.zone_od_dist_matrix = calc_zone_od_matrix(self.zone_dict,
-                                                       self.pkg_settings.get("set_cpu_cores"),
+                                                       cpu_cores=self.pkg_settings.get("set_cpu_cores"),
+                                                       sel_orig_zone_id=sel_orig_zone_id,
+                                                       sel_dest_zone_id=sel_dest_zone_id,
+                                                       pct=pct,
                                                        verbose=self.verbose)
         self.is_zone_od_dist_matrix = True
         return self.zone_od_dist_matrix if return_value else None

@@ -49,8 +49,8 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
         d_zone_id = df_demand.loc[i, 'd_zone_id']
         o_zone_name = df_demand.loc[i, 'o_zone_name']
         d_zone_name = df_demand.loc[i, 'd_zone_name']
-        o_node_id = choice(zone_dict[o_zone_name].node_id_list + [""])
-        d_node_id = choice(zone_dict[d_zone_name].node_id_list + [""])
+        o_node_id = choice(zone_dict[o_zone_name]["node_id_list"] + [""])
+        d_node_id = choice(zone_dict[d_zone_name]["node_id_list"] + [""])
 
         if o_node_id and d_node_id:
             rand_time = math.ceil(uniform(1, 60))
@@ -71,7 +71,7 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
                     d_zone_name=d_zone_name,
                     o_node_id=o_node_id,
                     d_node_id=d_node_id,
-                    geometry=f"LINESTRING({node_dict[o_node_id].x_coord} {node_dict[o_node_id].y_coord}, {node_dict[d_node_id].x_coord} {node_dict[d_node_id].y_coord})",
+                    geometry=f"LINESTRING({node_dict[o_node_id]["x_coord"]} {node_dict[o_node_id]["y_coord"]}, {node_dict[d_node_id]["x_coord"]} {node_dict[d_node_id]["y_coord"]})",
                     departure_time=departure_time
                 )
             )

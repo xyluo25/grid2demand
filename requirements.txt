@@ -2,3 +2,4 @@ pandas>=2.0.0
 Shapely
 pyufunc
 tqdm
+joblib
