@@ -744,8 +744,7 @@ def calc_zone_od_matrix(zone_dict: dict,
 
         # Use joblib to parallelize the processing of combinations
         results = Parallel(n_jobs=cpu_cores)(
-            delayed(process_combinations)(chunk) for chunk in chunks
-        )
+            delayed(process_combinations)(chunk) for chunk in chunks)
 
         # Merge results from all workers into a single set
         combinations = set()
@@ -754,7 +753,7 @@ def calc_zone_od_matrix(zone_dict: dict,
         total_combinations = len(combinations)
 
     selected_combinations = list(tqdm(itertools.islice(combinations, total_combinations),
-                                      total=total_combinations, desc="Generate OD Combinations"))
+                                      total=total_combinations, desc="  :Generate OD Combinations"))
 
     # printout message to inform total number of zones and total number of combinations
     print(f"  : Total zones {num_selected_zones}, will generate OD combinations {total_combinations}.")
@@ -768,7 +767,7 @@ def calc_zone_od_matrix(zone_dict: dict,
         return (zone1.y_coord, zone1.x_coord, zone2.y_coord, zone2.x_coord, str(zone1.id), str(zone2.id))
 
     extracted_data = Parallel(n_jobs=cpu_cores)(delayed(extract_coordinates)(
-        zone_pair) for zone_pair in tqdm(selected_combinations, desc="Extract OD Coordinates from zones"))
+        zone_pair) for zone_pair in tqdm(selected_combinations, desc="  :Extract OD Coordinates from zones"))
 
     if verbose:
         print("  : Prepare OD longitudes and latitudes from combinations for parallel computing...")
@@ -800,7 +799,7 @@ def calc_zone_od_matrix(zone_dict: dict,
         # Use Joblib to process batches in parallel
         results = Parallel(n_jobs=cpu_cores)(delayed(process_batch)(
             (batch['lat1'].values, batch['lon1'].values, batch['lat2'].values, batch['lon2'].values))
-            for batch in tqdm(batches, desc="Calculate Distance"))
+            for batch in tqdm(batches, desc="  :Calculate Distance"))
         return np.concatenate(results)
 
     # calculate the distance

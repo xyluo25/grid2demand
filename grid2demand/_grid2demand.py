@@ -12,9 +12,12 @@ import contextlib
 
 import pandas as pd
 import shapely
+from joblib import Parallel, delayed
+from tqdm import tqdm
 from pyufunc import (path2linux,
                      get_filenames_by_ext,
-                     generate_unique_filename)
+                     generate_unique_filename,
+                     func_time)
 
 from grid2demand.utils_lib.pkg_settings import pkg_settings
 from grid2demand.utils_lib.net_utils import (Node,
@@ -391,6 +394,7 @@ class GRID2DEMAND:
 
         return self.zone_dict if return_value else None
 
+    @func_time
     def taz2zone(self, zone_file: str = "", return_value: bool = False) -> dict[str, Zone]:
         """generate zone dictionary from zone.csv (TAZs)
 
@@ -442,26 +446,44 @@ class GRID2DEMAND:
                 zone_df = pd.read_csv(self.zone_file)  # reload zone file
                 include_point = False
                 include_polygon = False
-                for i in range(len(zone_df)):
-                    try:
-                        geo = shapely.from_wkt(zone_df.loc[i, "geometry"])
 
-                        if isinstance(geo, shapely.Point):
-                            zone_df.loc[i, "x_coord"] = geo.x
-                            zone_df.loc[i, "y_coord"] = geo.y
-                            include_point = True
+                # Function to process a chunk of the DataFrame
+                def process_chunk(chunk):
+                    for index, row in chunk.iterrows():
+                        try:
+                            geo = shapely.from_wkt(row["geometry"])
+                            if isinstance(geo, shapely.Point):
+                                row["x_coord"] = geo.x
+                                row["y_coord"] = geo.y
+                            elif isinstance(geo, (shapely.Polygon, shapely.MultiPolygon)):
+                                row["x_coord"] = geo.centroid.x
+                                row["y_coord"] = geo.centroid.y
+                            else:
+                                print(f"  : Error: {row['geometry']} is not valid geometry.")
+                        except Exception as e:
+                            print(f"  : Error: {row['geometry']} is not valid geometry.")
+                            print(f"  : Error: {e}")
+                    return chunk
 
-                        elif isinstance(geo, (shapely.Polygon, shapely.MultiPolygon)):
-                            zone_df.loc[i, "x_coord"] = geo.centroid.x
-                            zone_df.loc[i, "y_coord"] = geo.centroid.y
-                            include_polygon = True
-                        else:
-                            print(f"  : Error: {zone_df.loc[i, 'geometry']} is not valid geometry.")
-                    except Exception as e:
-                        print(f"  : Error: {zone_df.loc[i, 'geometry']} is not valid geometry.")
-                        print(f"  : Error: {e}")
+                chunk_size = pkg_settings["data_chunk_size"]
+                chunks = [zone_df.iloc[i:i + chunk_size]
+                          for i in range(0, len(zone_df), chunk_size)]
 
-                if not include_point and not include_polygon:
+                # Process each chunk in parallel with progress tracking
+                processed_chunks = Parallel(n_jobs=-1)(
+                    delayed(process_chunk)(chunk) for chunk in tqdm(chunks, desc="  :Update zone geometry")
+                )
+
+                # Concatenate all the processed chunks back into a single DataFrame
+                zone_df = pd.concat(processed_chunks, ignore_index=True)
+
+                # check if is point or polygon
+                single_geo = shapely.from_wkt(zone_df.loc[0, "geometry"])
+                if isinstance(single_geo, shapely.Point):
+                    include_point = True
+                elif isinstance(single_geo, (shapely.Polygon, shapely.MultiPolygon)):
+                    include_polygon = True
+                else:
                     raise Exception(f"Error: {self.zone_file} does not contain valid geometry fields.")
 
                 if include_point:
