@@ -19,7 +19,7 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    input_dir = r"C:\Users\xyluo25\anaconda3_workspace\001_GitHub\grid2demand\datasets\demand_from_TAZ\poi_02"
+    input_dir = r"C:\Users\xyluo25\anaconda3_workspace\001_GitHub\grid2demand\datasets\demand_from_TAZ\SF_demo"
 
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=input_dir, verbose=False)
@@ -30,7 +30,9 @@ if __name__ == "__main__":
     # Step 2: Generate zone dictionary from zone.csv file
     net.taz2zone()
 
-    net.calc_zone_od_distance_matrix()
+    net.sync_geometry_between_zone_and_node_poi()
+
+    net.calc_zone_od_distance_matrix(pct=0.01)
 
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()

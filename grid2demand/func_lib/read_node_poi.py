@@ -68,17 +68,17 @@ def _create_node_from_dataframe(df_node: pd.DataFrame) -> dict[int, Node]:
             # check whether zone_id field in node.csv or not
             # if zone_id field exists and is not empty, assign it to _zone_id
             try:
-                _zone_id = int(df_node.loc[i, 'zone_id'])
+                _zone_id = str(df_node.loc[i, 'zone_id'])
 
                 # check if _zone is none or empty, assign -1
                 if pd.isna(_zone_id) or not _zone_id:
-                    _zone_id = -1
+                    _zone_id = "-1"
 
             except Exception:
-                _zone_id = -1
+                _zone_id = "-1"
 
             # get node id
-            node_id = int(df_node.loc[i, 'node_id'])
+            node_id = str(df_node.loc[i, 'node_id'])
             x_coord = float(df_node.loc[i, 'x_coord'])
             y_coord = float(df_node.loc[i, 'y_coord'])
 
@@ -138,7 +138,7 @@ def _create_poi_from_dataframe(df_poi: pd.DataFrame) -> dict[int, POI]:
             area = df_poi.loc[i, 'area']
 
             # get poi id
-            poi_id = int(df_poi.loc[i, 'poi_id'])
+            poi_id = str(df_poi.loc[i, 'poi_id'])
 
             poi = POI_ext()
 
@@ -192,7 +192,7 @@ def _create_zone_from_dataframe_by_geometry(df_zone: pd.DataFrame) -> dict[int, 
 
     for i in range(len(df_zone)):
         try:
-            zone_id = df_zone.loc[i, 'zone_id']
+            zone_id = str(df_zone.loc[i, 'zone_id'])
             zone_geometry = df_zone.loc[i, 'geometry']
 
             zone_geometry_shapely = shapely.from_wkt(zone_geometry)
@@ -254,7 +254,7 @@ def _create_zone_from_dataframe_by_centroid(df_zone: pd.DataFrame) -> dict[int, 
 
     for i in range(len(df_zone)):
         try:
-            zone_id = df_zone.loc[i, 'zone_id']
+            zone_id = str(df_zone.loc[i, 'zone_id'])
             x_coord = df_zone.loc[i, 'x_coord']
             y_coord = df_zone.loc[i, 'y_coord']
 
@@ -353,8 +353,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     # Combine results using itertools.chain for efficiency
     node_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
-    if verbose:
-        print(f"  : Successfully loaded node.csv: {len(node_dict_final)} Nodes loaded.")
+    print(f"  : Successfully loaded node.csv: {len(node_dict_final)} Nodes loaded.")
 
     # time consuming creating dynamic dataclass
     # node_dict_final = {k: create_dataclass_from_dict("Node", v) for k, v in node_dict_final.items()}
@@ -423,8 +422,7 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
 
     poi_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
-    if verbose:
-        print(f"  : Successfully loaded poi.csv: {len(poi_dict_final)} POIs loaded.")
+    print(f"  : Successfully loaded poi.csv: {len(poi_dict_final)} POIs loaded.")
 
     # time consuming creating dynamic dataclass
     # poi_dict_final = {k: create_dataclass_from_dict("POI", v) for k, v in poi_dict_final.items()}
@@ -493,8 +491,7 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
 
     zone_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
-    if verbose:
-        print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
+    print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
     # dynamic dataclass: slow
     # zone_dict_final = {k: create_dataclass_from_dict("Zone", v) for k, v in zone_dict_final.items()}
@@ -564,8 +561,7 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     zone_dict_final = dict(itertools.chain.from_iterable(
         result.items() for result in results))
 
-    if verbose:
-        print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
+    print(f"  : Successfully loaded zone.csv: {len(zone_dict_final)} Zones loaded.")
 
     # dynamic dataclass: slow
     # zone_dict_final = {k: create_dataclass_from_dict("Zone", v) for k, v in zone_dict_final.items()}

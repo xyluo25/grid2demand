@@ -30,11 +30,12 @@ from tqdm.contrib.concurrent import process_map
 import datetime
 import random
 import math
+from joblib import Parallel, delayed
 
 
 # supporting functions
-def _get_lng_lat_min_max(node_dict: dict[int, Node]) -> list:
-    """Get the boundary of the study area
+def _get_lng_lat_min_max(node_dict: dict[str, "Node"]) -> list:
+    """Get the boundary of the study area using faster numpy operations.
 
     Args:
         node_dict (dict[int, Node]): node_dict {node_id: Node}
@@ -42,21 +43,18 @@ def _get_lng_lat_min_max(node_dict: dict[int, Node]) -> list:
     Returns:
         list: [min_lng, max_lng, min_lat, max_lat]
     """
-    first_key = list(node_dict.keys())[0]
 
-    coord_x_min, coord_x_max = node_dict[first_key].x_coord, node_dict[first_key].x_coord
-    coord_y_min, coord_y_max = node_dict[first_key].y_coord, node_dict[first_key].y_coord
+    # Extract x_coords and y_coords from node_dict
+    x_coords = np.array([node.x_coord for node in node_dict.values()])
+    y_coords = np.array([node.y_coord for node in node_dict.values()])
 
-    for node_id in node_dict:
-        if node_dict[node_id].x_coord < coord_x_min:
-            coord_x_min = node_dict[node_id].x_coord
-        if node_dict[node_id].x_coord > coord_x_max:
-            coord_x_max = node_dict[node_id].x_coord
-        if node_dict[node_id].y_coord < coord_y_min:
-            coord_y_min = node_dict[node_id].y_coord
-        if node_dict[node_id].y_coord > coord_y_max:
-            coord_y_max = node_dict[node_id].y_coord
+    # Get min/max values using numpy operations (vectorized)
+    coord_x_min = np.min(x_coords)
+    coord_x_max = np.max(x_coords)
+    coord_y_min = np.min(y_coords)
+    coord_y_max = np.max(y_coords)
 
+    # Return the boundary with a small buffer
     return [coord_x_min - 0.000001, coord_x_max + 0.000001, coord_y_min - 0.000001, coord_y_max + 0.000001]
 
 
@@ -175,6 +173,142 @@ def _sync_zones_centroid_with_poi(args: tuple) -> tuple:
     zone_id = zone_point_id[closest_zone_point]
     return poi_id, zone_id
 
+
+def cvt_node_poi_to_arrays(input_dict: dict) -> tuple:
+    """Convert node or poi dictionary to arrays
+
+    Args:
+        input_dict (dict): Node or POI dictionary
+
+    Returns:
+        tuple: Node or POI arrays
+    """
+    # Convert dictionary to arrays
+    # Create numpy arrays for node coordinates
+    coords = np.array([[node_info["x_coord"], node_info["y_coord"]]
+                      for node_info in input_dict.values()])
+    ids = np.array([node_info["id"] for node_info in input_dict.values()])
+    return (ids, coords)
+
+
+def cvt_zone_geometry_to_arrays(zone_dict: dict) -> tuple:
+    """Convert zone dictionary to arrays
+
+    Args:
+        zone_dict (dict): Zone dictionary
+
+    Returns:
+        tuple: Zone arrays
+    """
+    # Create numpy arrays for zone bounding boxes and geometries
+    zone_bboxes = []
+    zone_polygons = []
+    for zone_info in zone_dict.values():
+        zone_bboxes.append([zone_info["x_min"], zone_info["x_max"],
+                           zone_info["y_min"], zone_info["y_max"]])
+        zone_polygon = shapely.from_wkt(zone_info["geometry"])
+        zone_polygons.append(zone_polygon)
+    return (np.array(zone_bboxes), np.array(zone_polygons))
+
+
+def cvt_zone_centroid_to_arrays(zone_dict: dict) -> tuple:
+    """Convert zone dictionary to arrays
+
+    Args:
+        zone_dict (dict): Zone dictionary
+
+    Returns:
+        tuple: Zone arrays
+    """
+    # Create numpy arrays for zone centroids
+    zone_centroids = np.array([[zone_info["x_coord"], zone_info["y_coord"]]
+                              for zone_info in zone_dict.values()])
+    zone_ids = np.array([zone_info["id"] for zone_info in zone_dict.values()])
+    return (zone_ids, zone_centroids)
+
+
+def points_map_to_zone(zone_bbox: np.array, zone_polygon: np.array, pt_coords: np.array, pt_ids: np.array) -> np.array:
+    """Map points to zones
+
+    Args:
+        zone_bbox (np.array): the boundary of the zone
+        zone_polygon (np.array): the geometry of the zone in WKT format
+        pt_coords (np.array): the coordinates of the all points
+        pt_ids (np.array): the ids of the all points
+
+    Returns:
+        np.array: the ids of the points within the zone
+    """
+
+    # Extract bounding box coordinates
+    x_min, x_max, y_min, y_max = zone_bbox
+
+    # Vectorized bounding box check
+    within_bbox = (pt_coords[:, 0] >= x_min) & (pt_coords[:, 0] <= x_max) & \
+                  (pt_coords[:, 1] >= y_min) & (pt_coords[:, 1] <= y_max)
+
+    # Check within the bounding box
+    candidate_nodes = pt_coords[within_bbox]
+    candidate_ids = pt_ids[within_bbox]
+
+    return [
+        candidate_ids[i]
+        for i, node in enumerate(candidate_nodes)
+        if zone_polygon.contains(shapely.Point(node[0], node[1]))
+    ]
+
+
+def add_zone_to_nodes(node_dict: dict, zone_dict: dict) -> dict:
+    """Update node_dict with zone_id
+
+    Args:
+        node_dict (dict): the node dictionary
+        zone_dict (dict): the zone dictionary
+
+    Returns:
+        dict: the updated node dictionary
+    """
+
+    sum_missing_nodes = 0
+    for zone_id, zone_info in zone_dict.items():
+        node_id_list = zone_info["node_id_list"]
+        for node_id in node_id_list:
+            try:
+                # Update zone_id for each node
+                node_dict[str(node_id)]["zone_id"] = zone_id
+            except KeyError:
+                sum_missing_nodes += 1
+                # print(f"  : Node {node_id} not found in node_dict")
+    if sum_missing_nodes > 0:
+        print(f"  : {sum_missing_nodes} Nodes not found in node_dict")
+    return node_dict
+
+
+def add_zone_to_pois(poi_dict: dict, zone_dict: dict) -> dict:
+    """Update poi_dict with zone_id
+
+    Args:
+        poi_dict (dict): the poi dictionary
+        zone_dict (dict): the zone dictionary
+
+    Returns:
+        dict: the updated poi dictionary
+    """
+
+    sum_missing_poi = 0
+    for zone_id, zone_info in zone_dict.items():
+        poi_id_list = zone_info["poi_id_list"]
+        for poi_id in poi_id_list:
+            try:
+                # Update zone_id for poi
+                poi_dict[str(poi_id)]["zone_id"] = zone_id
+            except KeyError:
+                sum_missing_poi += 1
+                # print(f"  : Poi {poi_id} not found in poi_dict")
+    if sum_missing_poi > 0:
+        print(f"  : {sum_missing_poi} POIs not found in poi_dict")
+    return poi_dict
+
 # Main functions
 
 
@@ -217,42 +351,7 @@ def net2zone(node_dict: dict[int, Node],
 
     """
 
-    # # convert node_dict to dataframe
-    # df_node = pd.DataFrame(node_dict.values())
-    # # get the boundary of the study area
-    # coord_x_min, coord_x_max = df_node['x_coord'].min(
-    # ) - 0.000001, df_node['x_coord'].max() + 0.000001
-    # coord_y_min, coord_y_max = df_node['y_coord'].min(
-    # ) - 0.000001, df_node['y_coord'].max() + 0.000001
-
-    # generate zone based on zone_id in node.csv
-    # if use_zone_id:
-    #     node_dict_zone_id = {}
-    #     for node_id in node_dict:
-    #         with contextlib.suppress(AttributeError):
-    #             if node_dict[node_id]._zone_id != -1:
-    #                 node_dict_zone_id[node_id] = node_dict[node_id]
-    #     if not node_dict_zone_id:
-    #         print("  : No zone_id found in node_dict, will generate zone based on original node_dict")
-    #     else:
-    #         node_dict = node_dict_zone_id
-
     coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(node_dict)
-
-    # get nodes within the boundary
-    # if use_zone_id:
-    #     node_dict_within_boundary = {}
-    #     for node_id in node_dict:
-    #         if node_dict[node_id].x_coord >= coord_x_min and node_dict[node_id].x_coord <= coord_x_max and \
-    #                 node_dict[node_id].y_coord >= coord_y_min and node_dict[node_id].y_coord <= coord_y_max:
-    #             node_dict_within_boundary[node_id] = node_dict[node_id]
-    # else:
-    #     node_dict_within_boundary = node_dict
-
-    # Priority: num_x_blocks, number_y_blocks > cell_width, cell_height
-    # if num_x_blocks and num_y_blocks are given, use them to partition the study area
-    # else if cell_width and cell_height are given, use them to partition the study area
-    # else raise error
 
     if num_x_blocks > 0 and num_y_blocks > 0:
         x_block_width = (coord_x_max - coord_x_min) / num_x_blocks
@@ -273,15 +372,15 @@ def net2zone(node_dict: dict[int, Node],
             'Please provide num_x_blocks and num_y_blocks or cell_width and cell_height')
 
     # partition the study area into zone cells
-    x_block_min_lst = [coord_x_min + i *
-                       x_block_width for i in range(num_x_blocks)]
-    y_block_min_lst = [coord_y_min + i *
-                       y_block_height for i in range(num_y_blocks)]
+    x_block_min_lst = [coord_x_min + i * x_block_width for i in range(num_x_blocks)]
+    y_block_min_lst = [coord_y_min + i * y_block_height for i in range(num_y_blocks)]
 
-    x_block_minmax_list = list(zip(
-        x_block_min_lst[:-1], x_block_min_lst[1:])) + [(x_block_min_lst[-1], coord_x_max)]
-    y_block_minmax_list = list(zip(
-        y_block_min_lst[:-1], y_block_min_lst[1:])) + [(y_block_min_lst[-1], coord_y_max)]
+    x_block_minmax_list = list(zip(x_block_min_lst[:-1],
+                                   x_block_min_lst[1:])) + [(x_block_min_lst[-1],
+                                                             coord_x_max)]
+    y_block_minmax_list = list(zip(y_block_min_lst[:-1],
+                                   y_block_min_lst[1:])) + [(y_block_min_lst[-1],
+                                                             coord_y_max)]
 
     def generate_polygon(x_min, x_max, y_min, y_max) -> shapely.geometry.Polygon:
         """Generate polygon from min and max coordinates
@@ -385,7 +484,7 @@ def net2zone(node_dict: dict[int, Node],
 
 
 @func_running_time
-def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
+def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Map nodes to zone cells
 
     Parameters
@@ -404,59 +503,33 @@ def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
     zone_cp = copy.deepcopy(zone_dict)
     node_cp = copy.deepcopy(node_dict)
 
-    # Pre-process zone geometries
-    for zone_id, zone in zone_dict.items():
-        if isinstance(zone["geometry"], str):
-            zone["geometry"] = shapely.from_wkt(zone["geometry"])
+    # Step 1: Add node_id_list to each zone in zone_dict
 
-    # Pre-process node geometries
-    for node_id, node in node_dict.items():
-        if isinstance(node["geometry"], str):
-            node["geometry"] = shapely.from_wkt(node["geometry"])
-
-    # Create a spatial index for zone geometries
-    zone_geometries = [zone["geometry"] for zone in zone_dict.values()]
-    zone_ids = list(zone_dict.keys())
-    zone_index = STRtree(zone_geometries)
-
-    # Prepare arguments for the pool
-    # args_list = [(node_id, node, zone_cp) for node_id, node in node_cp.items()]
-
-    # Prepare node batches for multiprocessing
-    chunk_size = pkg_settings["data_chunk_size"]
-
-    node_items = list(node_dict.items())
-    node_batches = [node_items[i:i + chunk_size] for i in range(0, len(node_items), chunk_size)]
-
-    # Prepare arguments for multiprocessing
-    # args_list = [(node_id, node, zone_dict, zone_index, zone_ids) for node_id, node in node_dict.items()]
-    args_list = [(batch, zone_dict, zone_index, zone_ids) for batch in node_batches]
+    # convert node_dict and zone_dict to arrays
+    node_ids, node_coords = cvt_node_poi_to_arrays(node_cp)
+    zone_bboxes, zone_polygons = cvt_zone_geometry_to_arrays(zone_cp)
 
     if verbose:
         print(f"  : Parallel sync zone geometry and node using {cpu_cores} cpu cores.")
 
-    with Pool(processes=cpu_cores) as pool:
-        results = list(tqdm(pool.imap(_sync_zones_geometry_with_node, args_list), total=len(args_list)))
-        pool.close()
-        pool.join()
-    # results = process_map(_sync_zones_geometry_with_node, args_list, workers=cpu_cores)
+    # Parallel processing for zones
+    results = Parallel(n_jobs=cpu_cores)(delayed(points_map_to_zone)(
+        zone_bboxes[idx], zone_polygons[idx], node_coords, node_ids) for idx in tqdm(range(len(zone_bboxes)), desc="  :Node to Zone"))
 
-    # Gather results
-    # Ensure results is a list of lists and not None
-    results = [result for result in results if result is not None]
-    for batch_results in results:
-        for node_id, node, zone_name in batch_results:
-            if zone_name is not None:
-                zone_cp[zone_name]["node_id_list"].append(node_id)
-            node_cp[node_id] = node
+    # Collect results back into zone_dict
+    for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
+        zone_info["node_id_list"] = results[idx]
 
     if verbose:
         print("  : Successfully synchronized zone and node geometry")
 
+    # Step 2: Add zone_id back to each node in node_dict
+    node_cp = add_zone_to_nodes(node_cp, zone_cp)
+
     return {"zone_dict": zone_cp, "node_dict": node_cp}
 
 
-def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
+def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Synchronize zone in centroids and nodes to update zone_id attribute for nodes
 
     Args:
@@ -468,63 +541,68 @@ def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
 
     """
 
-    # node_point_id = {
-    #     shapely.geometry.Point(
-    #         node_dict[node_id].x_coord, node_dict[node_id].x_coord
-    #     ): node_id
-    #     for node_id in node_dict
-    # }
-
     # Deepcopy the dictionary
     zone_cp = copy.deepcopy(zone_dict)
     node_cp = copy.deepcopy(node_dict)
 
-    # Create zone_point_id dictionary
-    zone_point_id = {
-        shapely.geometry.Point(zone_cp[zone_id]["x_coord"], zone_cp[zone_id]["y_coord"]): zone_id
-        for zone_id in zone_cp
-    }
-
-    # create multipoint object for zone centroids
-    multipoint_zone = shapely.geometry.MultiPoint(
-        [shapely.geometry.Point(zone_cp[i]["x_coord"], zone_cp[i]["y_coord"]) for i in zone_cp])
-
-    # Prepare data for multiprocessing
-    args = [(node_id, node, multipoint_zone, zone_point_id) for node_id, node in node_cp.items()]
-
-    # cpu_cores = pkg_settings["set_cpu_cores"]
+    # convert node_dict and zone_dict to arrays
+    node_ids, node_coords = cvt_node_poi_to_arrays(node_cp)
+    zone_ids, zone_centroids = cvt_zone_centroid_to_arrays(zone_cp)
 
     if verbose:
         print(f"  : Parallel sync zone centroid and node using {cpu_cores} cpu cores.")
 
-    with Pool(cpu_cores) as pool:
-        results = list(tqdm(pool.imap(_sync_zones_centroid_with_node, args), total=len(node_cp)))
-        pool.close()
-        pool.join()
+    # Step 1: mapping nodes with closest zone centroids
+    # Function to compute the closest zone for each batch of nodes
+    def process_node_batch(node_batch_coords, node_batch_ids, zone_centroids, zone_ids):
+        closest_zone_ids = []
+        for i in range(len(node_batch_coords)):
+            # Calculate distances between the node and all zone centroids
+            distances = np.sqrt((zone_centroids[:, 0] - node_batch_coords[i, 0])**2 +
+                                (zone_centroids[:, 1] - node_batch_coords[i, 1])**2)
+            # Find the index of the closest zone
+            closest_zone_idx = np.argmin(distances)
+            closest_zone_ids.append(zone_ids[closest_zone_idx])
+        return node_batch_ids, np.array(closest_zone_ids)
 
-    # Update zone_cp with the results
-    for node_id, zone_id in results:
-        node_cp[node_id]["zone_id"] = zone_id
-        zone_cp[zone_id]["node_id_list"].append(node_id)
+    # Split nodes into batches and process them in parallel
+    node_chunks = np.array_split(np.arange(len(node_coords)), cpu_cores)
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(process_node_batch)(
+            node_coords[chunk], node_ids[chunk], zone_centroids, zone_ids)
+        for chunk in tqdm(node_chunks, desc="  :Node to closest Zone")
+    )
 
-    # flag = 0
-    # for node_id, node in tqdm(node_cp.items()):
-    #     if flag + 1 % 1000 == 0:
-    #         print(f"Processing node {flag + 1}/{len(node_cp)}")
-    #     node_point = shapely.geometry.Point(node.x_coord, node.y_coord)
-    #     closest_zone_point = find_closest_point(node_point, multipoint_zone)[0]
-    #     zone_id = zone_point_id[closest_zone_point]
-    #     node.zone_id = zone_id
-    #     zone_cp[zone_id].node_id_list.append(node_id)
+    # Update node_ids with the closest zone_id
+    node_zone_mapping = np.zeros(len(node_ids), dtype=zone_ids.dtype)
+    for node_batch_ids, closest_zone_batch in results:
+        node_batch_ids = np.array(node_batch_ids)
+        node_zone_mapping[node_batch_ids] = closest_zone_batch
 
-    if verbose:
-        print("  : Successfully synchronized zone and node geometry")
+    # Step 2: Update node_dict with zone_id, and zone_dict with node_id_list
+    missing_nodes = 0
+    missing_zones = 0
+    for node_id, zone_id in zip(node_ids, node_zone_mapping):
+        try:
+            node_cp[node_id]["zone_id"] = zone_id
+        except KeyError:
+            missing_nodes += 1
+
+        try:
+            zone_cp[zone_id]["node_id_list"].append(node_id)
+        except KeyError:
+            missing_zones += 1
+
+    if missing_nodes > 0:
+        print(f"  : {missing_nodes} Nodes not found in node_dict")
+    if missing_zones > 0:
+        print(f"  : {missing_zones} Zones not found in zone_dict")
 
     return {"zone_dict": zone_cp, "node_dict": node_cp}
 
 
 @func_running_time
-def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
+def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Synchronize zone cells and POIs to update zone_id attribute for POIs and poi_id_list attribute for zone cells
 
     Args:
@@ -543,53 +621,29 @@ def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
     zone_cp = copy.deepcopy(zone_dict)
     poi_cp = copy.deepcopy(poi_dict)
 
-    # Pre-process zone geometries
-    for zone_id, zone in zone_dict.items():
-        if isinstance(zone["geometry"], str):
-            zone["geometry"] = shapely.from_wkt(zone["geometry"])
+    # Step 1: Add node_id_list to each zone in zone_dict
 
-    # Pre-process node geometries
-    for poi_id, poi in poi_dict.items():
-        if isinstance(poi["geometry"], str):
-            poi["geometry"] = shapely.from_wkt(poi["geometry"])
-
-    # Create a spatial index for zone geometries
-    zone_geometries = [zone["geometry"] for zone in zone_dict.values()]
-    zone_ids = list(zone_dict.keys())
-    zone_index = STRtree(zone_geometries)
-
-    # Prepare arguments for the pool
-    # args_list = [(poi_id, poi, zone_cp) for poi_id, poi in poi_cp.items()]
-
-    # Prepare node batches for multiprocessing
-    chunk_size = pkg_settings["data_chunk_size"]
-
-    poi_items = list(poi_dict.items())
-    poi_batches = [poi_items[i:i + chunk_size] for i in range(0, len(poi_items), chunk_size)]
-
-    # Prepare arguments for multiprocessing
-    # args_list = [(node_id, node, zone_dict, zone_index, zone_ids) for node_id, node in node_dict.items()]
-    args_list = [(batch, zone_dict, zone_index, zone_ids) for batch in poi_batches]
-
-    with Pool(processes=cpu_cores) as pool:
-        # Distribute work to the pool
-        results = list(tqdm(pool.imap(_sync_zones_geometry_with_poi, args_list), total=len(args_list)))
-        pool.close()
-        pool.join()
-
-    # results = process_map(_sync_zones_geometry_with_poi, args_list)
-
-    # Gather results
-    # Ensure results is a list of lists and not None
-    results = [result for result in results if result is not None]
-    for batch_results in results:
-        for poi_id, poi, zone_name in batch_results:
-            if zone_name is not None:
-                zone_cp[zone_name]["poi_id_list"].append(poi_id)
-            poi_cp[poi_id] = poi
+    # convert node_dict and zone_dict to arrays
+    poi_ids, poi_coords = cvt_node_poi_to_arrays(poi_cp)
+    zone_bboxes, zone_polygons = cvt_zone_geometry_to_arrays(zone_cp)
 
     if verbose:
-        print("  : Successfully synchronized zone and poi geometry")
+        print(f"  : Parallel sync zone geometry and node using {cpu_cores} cpu cores.")
+
+    # Parallel processing for zones
+    results = Parallel(n_jobs=cpu_cores)(delayed(points_map_to_zone)(
+        zone_bboxes[idx], zone_polygons[idx], poi_coords, poi_ids) for idx in tqdm(range(len(zone_bboxes)), desc="  :POI to Zone"))
+
+    # Collect results back into zone_dict
+    for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
+        zone_info["poi_id_list"] = results[idx]
+
+    if verbose:
+        print("  : Successfully synchronized zone and node geometry")
+
+    # Step 2: Add zone_id back to each node in node_dict
+    poi_cp = add_zone_to_pois(poi_cp, zone_cp)
+
     return {"zone_dict": zone_cp, "poi_dict": poi_cp}
 
 
@@ -608,37 +662,57 @@ def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
     zone_cp = copy.deepcopy(zone_dict)
     poi_cp = copy.deepcopy(poi_dict)
 
-    zone_point_id = {
-        shapely.geometry.Point(zone_cp[zone_id]["x_coord"], zone_cp[zone_id]["y_coord"]): zone_id
-        for zone_id in zone_cp
-    }
-
-    multipoint_zone = shapely.geometry.MultiPoint(
-        [shapely.geometry.Point(zone_cp[i]["x_coord"], zone_cp[i]["y_coord"]) for i in zone_cp])
-
-    # Prepare data for multiprocessing
-    args = [(poi_id, poi, multipoint_zone, zone_point_id) for poi_id, poi in poi_cp.items()]
-    cpu_cores = pkg_settings["set_cpu_cores"]
-
-    with Pool(cpu_cores) as pool:
-        results = list(tqdm(pool.imap(_sync_zones_centroid_with_poi, args), total=len(poi_cp)))
-        pool.close()
-        pool.join()
-
-    # Update zone_cp with the results
-    for poi_id, zone_id in results:
-        poi_cp[poi_id]["zone_id"] = zone_id
-        zone_cp[zone_id]["poi_id_list"].append(poi_id)
-
-    # for poi_id, poi in tqdm(poi_cp.items()):
-    #     poi_point = shapely.geometry.Point(poi.x_coord, poi.y_coord)
-    #     closest_zone_point = find_closest_point(poi_point, multipoint_zone)[0]
-    #     zone_id = zone_point_id[closest_zone_point]
-    #     poi.zone_id = zone_id
-    #     zone_cp[zone_id].poi_id_list.append(poi_id)
+    # convert node_dict and zone_dict to arrays
+    poi_ids, poi_coords = cvt_node_poi_to_arrays(poi_cp)
+    zone_ids, zone_centroids = cvt_zone_centroid_to_arrays(zone_cp)
 
     if verbose:
-        print("  : Successfully synchronized zone and poi geometry")
+        print(f"  : Parallel sync zone centroid and poi using {cpu_cores} cpu cores.")
+
+    # Step 1: mapping nodes with closest zone centroids
+    # Function to compute the closest zone for each batch of nodes
+    def process_node_batch(poi_batch_coords, poi_batch_ids, zone_centroids, zone_ids):
+        closest_zone_ids = []
+        for i in range(len(poi_batch_coords)):
+            # Calculate distances between the node and all zone centroids
+            distances = np.sqrt((zone_centroids[:, 0] - poi_batch_coords[i, 0])**2 +
+                                (zone_centroids[:, 1] - poi_batch_coords[i, 1])**2)
+            # Find the index of the closest zone
+            closest_zone_idx = np.argmin(distances)
+            closest_zone_ids.append(zone_ids[closest_zone_idx])
+        return poi_batch_ids, np.array(closest_zone_ids)
+
+    # Split nodes into batches and process them in parallel
+    poi_chunks = np.array_split(np.arange(len(poi_coords)), cpu_cores)
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(process_node_batch)(
+            poi_coords[chunk], poi_ids[chunk], zone_centroids, zone_ids)
+        for chunk in tqdm(poi_chunks, desc="  :POI to closest Zone")
+    )
+
+    # Update node_ids with the closest zone_id
+    poi_zone_mapping = np.zeros(len(poi_ids), dtype=zone_ids.dtype)
+    for node_batch_ids, closest_zone_batch in results:
+        poi_zone_mapping[node_batch_ids] = closest_zone_batch
+
+    # Step 2: Update node_dict with zone_id, and zone_dict with node_id_list
+    missing_poi = 0
+    missing_zones = 0
+    for poi_id, zone_id in zip(poi_ids, poi_zone_mapping):
+        try:
+            poi_cp[poi_id]["zone_id"] = zone_id
+        except KeyError:
+            missing_poi += 1
+
+        try:
+            zone_cp[zone_id]["node_id_list"].append(poi_id)
+        except KeyError:
+            missing_zones += 1
+
+    if missing_poi > 0:
+        print(f"  : {missing_poi} POIs not found in poi_dict")
+    if missing_zones > 0:
+        print(f"  : {missing_zones} Zones not found in zone_dict")
 
     return {"zone_dict": zone_cp, "poi_dict": poi_cp}
 
@@ -663,158 +737,102 @@ def calc_zone_od_matrix(zone_dict: dict,
     Returns:
         dict: the zone-to-zone distance matrix
     """
-    # Prepare arguments for the pool
-    print(f"  : Parallel calculating zone-to-zone distance matrix using Pool with {cpu_cores} CPUs. Please wait...")
+    print(f"  : Parallel calculating zone-to-zone distance matrix using {cpu_cores} CPUs. Please wait...")
 
-    # deepcopy the origin dictionary to avoid potential error.
-    zone_inside = copy.deepcopy(zone_dict)
-    total_zones = len(zone_inside)
-
-    # define selected_zone_id
-    selected_zone_id = []
-
-    # Prepare node batches for multiprocessing
+    total_zones = len(zone_dict)
     chunk_size = pkg_settings["data_chunk_size"]
 
-    # not sel_orig_zone_id and sel_dest_zone_id are not specified
-    # use pct to randomly select zones from zone_inside
+    # Use pct to randomly select zones if no origin/destination zones are specified
     if not sel_orig_zone_id and not sel_dest_zone_id:
-
-        # Calculate the number of keys to select based on the given percentage
         num_keys_to_select = int(total_zones * pct)
-
-        # Randomly select keys from the dictionary
-        selected_keys = random.sample(list(zone_inside.keys()), num_keys_to_select)
-
-        # Create a sub-dictionary with the selected keys
-        zone_inside = {key: zone_inside[key] for key in selected_keys}
-        print(f"  : Randomly select {num_keys_to_select} zones from {pct * 100} % of {total_zones}")
-
-        selected_zone_id = list(zone_inside.keys())
-
-    # if origin and destination zones are specified
-    # origin -> all, plus all -> destination, replace duplicated pairs
-    elif sel_orig_zone_id and sel_dest_zone_id:
-        selected_zone_id = list(set(sel_orig_zone_id + sel_dest_zone_id))
-
-    # if only origin zones specified, origin -> all pairs
-    elif sel_orig_zone_id:
-        selected_zone_id = list(set(sel_orig_zone_id))
-
-    # if only destination zones specified, all -> destinations pairs
+        selected_zone_ids = random.sample(list(zone_dict.keys()), num_keys_to_select)
+        print(f"  : Randomly selected {num_keys_to_select} from {pct * 100} % of {total_zones} zones")
     else:
-        selected_zone_id = list(set(sel_dest_zone_id))
+        selected_zone_ids = set(sel_orig_zone_id + sel_dest_zone_id)
 
-    # convert zone_inside to dataframe with only id, x_coord and y_coord
-    selected_data = [(zone['id'], zone['x_coord'], zone['y_coord'])
-                     for zone in zone_inside.values()]
-    df_zone_coords = pd.DataFrame(selected_data, columns=['id', 'x_coord', 'y_coord'])
+    # Extract selected zones and their coordinates as numpy arrays
+    zone_ids = np.array([zone['id'] for zone in zone_dict.values() if zone['id'] in selected_zone_ids])
+    zone_coords = np.array(
+        [[zone['x_coord'],
+          zone['y_coord']] for zone in zone_dict.values() if zone['id'] in selected_zone_ids])
 
-    # crate selected df
-    df_zone_coords_selected = df_zone_coords[df_zone_coords["id"].isin(selected_zone_id)]
+    # Parallel generation of combinations using joblib
+    zone_chunks = [zone_ids[i:i + chunk_size] for i in range(0, len(zone_ids), chunk_size)]
 
-    # calculate total OD combinations from given number of zones
-    num_selected_zones = df_zone_coords.shape[0]
+    # function to generate combinations for a chunk of zones
+    def generate_combinations_chunk(chunk1, chunk2, combination_type="product"):
+        if combination_type == "product":
+            return list(itertools.product(chunk1, chunk2))
+        elif combination_type == "combinations":
+            return list(itertools.combinations(chunk1, 2))
 
-    if verbose:
-        print("  : Generate OD combinations...")
-
-    # Generate OD combinations using combinations_with_replacement
-    if not sel_orig_zone_id and not sel_dest_zone_id:
-        combinations = itertools.combinations(df_zone_coords.itertuples(index=False), 2)
-        total_combinations = math.comb(num_selected_zones + 1, 2)
-
+    if sel_orig_zone_id or sel_dest_zone_id:
+        # Using itertools.product if origin/destination are specified
+        combinations = Parallel(n_jobs=cpu_cores)(
+            delayed(generate_combinations_chunk)(chunk1, zone_ids, "product")
+            for chunk1 in tqdm(zone_chunks, desc="  :Generating OD combinations (Product)"))
     else:
-        # Define a function to process a combination
-        def process_combinations(chunk):
-            unique_pairs = set()
-            for row1, row2 in chunk:
-                # Use frozenset to eliminate ordering differences
-                if row1 != row2:
-                    row_pair = frozenset([row1, row2])
-                    unique_pairs.add(row_pair)
-            return unique_pairs
+        # Using itertools.combinations if no specific origin/destination
+        combinations = Parallel(n_jobs=cpu_cores)(
+            delayed(generate_combinations_chunk)(chunk1, None, "combinations")
+            for chunk1 in tqdm(zone_chunks, desc="  :Generating OD combinations (Combinations)"))
 
-        # Create combinations between rows of df1 and df2
-        combinations = list(itertools.product(df_zone_coords_selected.itertuples(index=False),
-                                              df_zone_coords.itertuples(index=False)))
+    # Flatten the list of combinations
+    combinations = [item for sublist in combinations for item in sublist]
+    total_combinations = len(combinations)
 
-        # Split combinations into chunks for parallel processing
-        chunks = [combinations[i:i + chunk_size] for i in range(0, len(combinations), chunk_size)]
+    # Prepare OD coordinates from the combinations
+    print(f"  : Preparing OD coordinates for {total_combinations} zone combinations...")
 
-        # Use joblib to parallelize the processing of combinations
-        results = Parallel(n_jobs=cpu_cores)(
-            delayed(process_combinations)(chunk) for chunk in chunks)
+    # function to extract coordinates for a chunk of OD combinations
+    def extract_coordinates_chunk(combinations_chunk, zone_ids, zone_coords):
+        extracted = []
+        for comb in combinations_chunk:
+            orig_zone, dest_zone = comb
+            orig_idx = np.nonzero(zone_ids == orig_zone)[0][0]
+            dest_idx = np.nonzero(zone_ids == dest_zone)[0][0]
+            lat1, lon1 = zone_coords[orig_idx]
+            lat2, lon2 = zone_coords[dest_idx]
+            extracted.append((lat1, lon1, lat2, lon2, str(orig_zone), str(dest_zone)))
+        return extracted
 
-        # Merge results from all workers into a single set
-        combinations = set()
-        for result in results:
-            combinations.update(result)
-        total_combinations = len(combinations)
+    # Extract OD coordinates in chunks for parallel processing
+    combination_chunks = [combinations[i:i + chunk_size] for i in range(0, len(combinations), chunk_size)]
 
-    selected_combinations = list(tqdm(itertools.islice(combinations, total_combinations),
-                                      total=total_combinations, desc="  :Generate OD Combinations"))
+    print(f"  : Extracting OD coordinates in {len(combination_chunks)} chunks...")
 
-    # printout message to inform total number of zones and total number of combinations
-    print(f"  : Total zones {num_selected_zones}, will generate OD combinations {total_combinations}.")
+    # Extract coordinates in parallel using chunking
+    extracted_data = Parallel(n_jobs=cpu_cores)(
+        delayed(extract_coordinates_chunk)(chunk, zone_ids, zone_coords)
+        for chunk in tqdm(combination_chunks, desc="  :Extract OD Coordinates"))
 
-    if verbose:
-        print("  : Extract OD coordinates from zones...")
+    # Flatten extracted data
+    extracted_data = [item for sublist in extracted_data for item in sublist]
 
-    # Extract latitudes and longitudes for OD pairs in parallel
-    def extract_coordinates(zone_pair):
-        zone1, zone2 = zone_pair
-        return (zone1.y_coord, zone1.x_coord, zone2.y_coord, zone2.x_coord, str(zone1.id), str(zone2.id))
-
-    extracted_data = Parallel(n_jobs=cpu_cores)(delayed(extract_coordinates)(
-        zone_pair) for zone_pair in tqdm(selected_combinations, desc="  :Extract OD Coordinates from zones"))
-
-    if verbose:
-        print("  : Prepare OD longitudes and latitudes from combinations for parallel computing...")
-
-    # Initialize empty numpy arrays and mapping dictionary
-    zone_od_dist = {}
-
-    # Extract latitudes, longitudes, and zone pairs
+    # Store extracted data into numpy arrays
     lat1, lon1, lat2, lon2, zone_o_str, zone_d_str = zip(*extracted_data)
+    lat1, lon1, lat2, lon2 = np.array(lat1), np.array(lon1), np.array(lat2), np.array(lon2)
 
-    # Create the OD DataFrame
-    df_od = pd.DataFrame({
-        'lat1': lat1,
-        'lon1': lon1,
-        'lat2': lat2,
-        'lon2': lon2})
+    # Calculate distances in chunks
+    chunk_size = int(len(lat1) / cpu_cores)
 
-    # Split dataset into batches
-    batches = [df_od.iloc[i:i + chunk_size]
-               for i in range(0, len(df_od), chunk_size)]
+    def process_batch(lon1, lat1, lon2, lat2):
+        return calc_distance_on_unit_haversine(lon1, lat1, lon2, lat2)
 
-    # Batch processing function
-    def process_batch(batch):
-        lat1, lon1, lat2, lon2 = batch
-        return calc_distance_on_unit_haversine(lat1, lon1, lat2, lon2)
+    # Split into batches for parallel processing
+    batches = [(lon1[i:i + chunk_size], lat1[i:i + chunk_size], lon2[i:i + chunk_size], lat2[i:i + chunk_size])
+               for i in range(0, len(lat1), chunk_size)]
 
-    # Define a function that processes each batch in parallel
-    def parallel_process_batches(batches):
-        # Use Joblib to process batches in parallel
-        results = Parallel(n_jobs=cpu_cores)(delayed(process_batch)(
-            (batch['lat1'].values, batch['lon1'].values, batch['lat2'].values, batch['lon2'].values))
-            for batch in tqdm(batches, desc="  :Calculate Distance"))
-        return np.concatenate(results)
+    # Process batches in parallel
+    distances = Parallel(n_jobs=cpu_cores)(
+        delayed(process_batch)(batch[0], batch[1], batch[2], batch[3])
+        for batch in tqdm(batches, desc="  :Calculating Distances"))
 
-    # calculate the distance
-    distances = parallel_process_batches(batches)
+    # Concatenate results from all batches
+    distances = np.concatenate(distances)
 
-    # od paris
-    print("  : preparing zone_od_dist...")
-    df_od_dist = pd.DataFrame()
-    df_od_dist["zone_o"] = zone_o_str
-    df_od_dist["zone_d"] = zone_d_str
-    df_od_dist["dist"] = distances
+    # Create the OD distance matrix
+    zone_od_dist = {(zone_o, zone_d): dist for zone_o, zone_d, dist in zip(zone_o_str, zone_d_str, distances)}
 
-    zone_od_dist = df_od_dist.set_index(["zone_o", "zone_d"])["dist"].to_dict()
-
-    if verbose:
-        print("  : Successfully calculated zone-to-zone distance matrix")
-
+    print("  : Successfully calculated zone-to-zone distance matrix.")
     return zone_od_dist

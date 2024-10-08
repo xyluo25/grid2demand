@@ -202,7 +202,7 @@ class GRID2DEMAND:
         if not os.path.exists(self.node_file):
             raise FileNotFoundError(f"Error: File {self.node_file} does not exist.")
 
-        self.node_dict = read_node(self.node_file, self.pkg_settings.get("set_cpu_cores"), verbose=self.verbose)
+        node_dict = read_node(self.node_file, self.pkg_settings.get("set_cpu_cores"), verbose=self.verbose)
 
         # generate node_zone_pair {node_id: zone_id} for later use
         # the zone_id based on node.csv in field zone_id
@@ -218,20 +218,20 @@ class GRID2DEMAND:
             _node_and_zone_id = []  # store node_id that is zone
             self._node_is_zone = {}  # store node
 
-            for node_id in self.node_dict:
-                if self.node_dict[node_id]["_zone_id"] != -1:
-                    _val_list.append([self.node_dict[node_id]["_zone_id"],
-                                      self.node_dict[node_id]["x_coord"],
-                                      self.node_dict[node_id]["y_coord"],
-                                      shapely.Point(self.node_dict[node_id]["x_coord"],
-                                                    self.node_dict[node_id]["y_coord"])])
+            for node_id in node_dict:
+                if node_dict[node_id]["_zone_id"] != -1:
+                    _val_list.append([node_dict[node_id]["_zone_id"],
+                                      node_dict[node_id]["x_coord"],
+                                      node_dict[node_id]["y_coord"],
+                                      shapely.Point(node_dict[node_id]["x_coord"],
+                                                    node_dict[node_id]["y_coord"])])
 
                     _node_and_zone_id.append(node_id)
 
             # delete zone from node_dict
             for node_id in _node_and_zone_id:
-                self._node_is_zone[node_id] = self.node_dict[node_id]
-                del self.node_dict[node_id]
+                self._node_is_zone[node_id] = node_dict[node_id]
+                del node_dict[node_id]
 
             _zone_df = pd.DataFrame(_val_list, columns=_col)
             _zone_df = _zone_df.drop_duplicates(subset=["zone_id"])  # remove duplicates rows
@@ -240,7 +240,7 @@ class GRID2DEMAND:
             _zone_df.to_csv(self.zone_file, index=False)
             print(f"  : zone.csv is generated (use_zone_id=True) based on node.csv in {self.input_dir}.\n")
 
-        return self.node_dict
+        return node_dict
 
     def load_poi(self, poi_file: str = "") -> dict[int, POI]:
         """read poi.csv file and return poi_dict
@@ -259,8 +259,7 @@ class GRID2DEMAND:
         if not os.path.exists(self.poi_file):
             raise FileExistsError(f"Error: File {self.poi_file} does not exist.")
 
-        self.poi_dict = read_poi(self.poi_file, self.pkg_settings.get("set_cpu_cores"), verbose=self.verbose)
-        return self.poi_dict
+        return read_poi(self.poi_file, self.pkg_settings.get("set_cpu_cores"), verbose=self.verbose)
 
     def load_network(self,
                      *,
@@ -515,20 +514,19 @@ class GRID2DEMAND:
         # generate zone by centroid: zone_id, x_coord, y_coord
         # generate zone by geometry: zone_id, geometry
         if self.is_geometry:
-            self.zone_dict = read_zone_by_geometry(self.zone_file,
-                                                   self.pkg_settings.get("set_cpu_cores"),
-                                                   verbose=self.verbose)
+            zone_dict = read_zone_by_geometry(self.zone_file,
+                                              self.pkg_settings.get("set_cpu_cores"),
+                                              verbose=self.verbose)
 
         elif self.is_centroid:
-            self.zone_dict = read_zone_by_centroid(self.zone_file,
-                                                   self.pkg_settings.get("set_cpu_cores"),
-                                                   verbose=self.verbose)
-
+            zone_dict = read_zone_by_centroid(self.zone_file,
+                                              self.pkg_settings.get("set_cpu_cores"),
+                                              verbose=self.verbose)
         else:
             print(f"Error: {self.zone_file} does not contain valid zone fields.")
             return {}
-
-        return self.zone_dict if return_value else {}
+        self.zone_dict = zone_dict
+        return zone_dict if return_value else {}
 
     def sync_geometry_between_zone_and_node_poi(self,
                                                 zone_dict: dict = "",
@@ -578,8 +576,8 @@ class GRID2DEMAND:
                                                                  self.node_dict,
                                                                  self.pkg_settings.get("set_cpu_cores"),
                                                                  verbose=self.verbose)
-                    self.zone_dict = zone_node_dict.get('zone_dict')
-                    self.node_dict = zone_node_dict.get('node_dict')
+                    zone_dict = zone_node_dict.get('zone_dict')
+                    node_dict = zone_node_dict.get('node_dict')
 
                 except Exception as e:
                     print("Could not synchronize zone with node.\n")
@@ -592,12 +590,15 @@ class GRID2DEMAND:
                                                                  self.node_dict,
                                                                  self.pkg_settings.get("set_cpu_cores"),
                                                                  verbose=self.verbose)
-                    self.zone_dict = zone_node_dict.get('zone_dict')
-                    self.node_dict = zone_node_dict.get('node_dict')
+                    zone_dict = zone_node_dict.get('zone_dict')
+                    node_dict = zone_node_dict.get('node_dict')
 
                 except Exception as e:
                     print("Could not synchronize zone with node.\n")
                     print(f"The error occurred: {e}")
+
+            # self.zone_dict = zone_dict
+            self.node_dict = node_dict
 
         # synchronize zone with poi
         if hasattr(self, "poi_dict"):
@@ -606,12 +607,12 @@ class GRID2DEMAND:
             if self.is_geometry:
                 try:
                     print("  : zone geometry with poi...")
-                    zone_poi_dict = sync_zone_geometry_and_poi(self.zone_dict,
+                    zone_poi_dict = sync_zone_geometry_and_poi(zone_dict,
                                                                self.poi_dict,
                                                                self.pkg_settings.get("set_cpu_cores"),
                                                                verbose=self.verbose)
-                    self.zone_dict = zone_poi_dict.get('zone_dict')
-                    self.poi_dict = zone_poi_dict.get('poi_dict')
+                    zone_dict = zone_poi_dict.get('zone_dict')
+                    poi_dict = zone_poi_dict.get('poi_dict')
 
                 except Exception as e:
                     print("Could not synchronize zone with poi.\n")
@@ -620,16 +621,19 @@ class GRID2DEMAND:
             elif self.is_centroid:
                 try:
                     print("  : zone centroid with poi...")
-                    zone_poi_dict = sync_zone_centroid_and_poi(self.zone_dict,
+                    zone_poi_dict = sync_zone_centroid_and_poi(zone_dict,
                                                                self.poi_dict,
                                                                self.pkg_settings.get("set_cpu_cores"),
                                                                verbose=self.verbose)
-                    self.zone_dict = zone_poi_dict.get('zone_dict')
-                    self.poi_dict = zone_poi_dict.get('poi_dict')
+                    zone_dict = zone_poi_dict.get('zone_dict')
+                    poi_dict = zone_poi_dict.get('poi_dict')
 
                 except Exception as e:
                     print("Could not synchronize zone with poi.\n")
                     print(f"The error occurred: {e}")
+
+            self.zone_dict = zone_dict
+            self.poi_dict = poi_dict
 
         self.is_sync_geometry = True
         return {"zone_dict": self.zone_dict,
@@ -831,7 +835,11 @@ class GRID2DEMAND:
                                                        beta,
                                                        gamma,
                                                        verbose=self.verbose)
-        self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
+
+        # Converting dictionary to DataFrame
+        od_list = [(key[0], key[1], value) for key, value in self.zone_od_demand_matrix]
+        self.df_demand = pd.DataFrame(od_list, columns=['o_zone_id', 'd_zone_id', 'volume'])
+        # self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
 
         print("  : Successfully generated OD demands.")
         return self.df_demand if return_value else None
@@ -933,10 +941,7 @@ class GRID2DEMAND:
 
             # df_demand_non_zero = self.df_demand[self.df_demand["volume"] > 0]
 
-            if is_demand_with_geometry:
-                col_name = ["o_zone_id", "d_zone_id", "dist_km", "volume", "geometry"]
-            else:
-                col_name = ["o_zone_id", "d_zone_id", "dist_km", "volume"]
+            col_name = ["o_zone_id", "d_zone_id", "volume"]
 
             # Re-generate demand based on mode type
             self.df_demand["volume"] = self.df_demand["volume"] * pkg_settings["mode_type"].get(self.mode_type, 1)
