@@ -43,19 +43,19 @@ def _create_node_from_dataframe(df_node: pd.DataFrame) -> dict[int, Node]:
     """
     # Reset index to avoid index error
     df_node = df_node.reset_index(drop=True)
-    col_names = df_node.columns.tolist()
 
+    # get column names, remove node_id as it's not the attribute of Node class
+    col_names = df_node.columns.tolist()
     if "node_id" in col_names:
         col_names.remove("node_id")
 
-    # get node dataclass fields
-    # Get the list of attribute names
+    # Get the list of attribute names from Node dataclass
     node_attr_names = [f.name for f in fields(Node)]
 
-    # check difference between node_attr_names and col_names
+    # check difference between node_attr_names and input node col_names
     diff = list(set(col_names) - set(node_attr_names))
 
-    # create attributes for node class if diff is not empty
+    # create attributes for node dataclass if diff is not empty
     if diff:
         diff_attr = [(val, str, "") for val in diff]
         Node_ext = extend_dataclass(Node, diff_attr)
@@ -326,6 +326,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     df_node_2rows = pd.read_csv(node_file, nrows=2)
     col_names = df_node_2rows.columns.tolist()
 
+    # check whether zone_id field in node.csv or not, if not, add it to required fields
     if "zone_id" in col_names and "zone_id" not in node_required_cols:
         node_required_cols.append("zone_id")
 
@@ -348,7 +349,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_node_from_dataframe)(chunk)
-        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="Read nodes"))
+        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="  :Read nodes"))
 
     # Combine results using itertools.chain for efficiency
     node_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))

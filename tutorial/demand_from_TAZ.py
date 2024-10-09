@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     net.sync_geometry_between_zone_and_node_poi()
 
-    net.calc_zone_od_distance_matrix(pct=0.01)
+    net.calc_zone_od_distance_matrix(pct=1)
 
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()

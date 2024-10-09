@@ -204,9 +204,6 @@ class GRID2DEMAND:
 
         node_dict = read_node(self.node_file, self.pkg_settings.get("set_cpu_cores"), verbose=self.verbose)
 
-        # generate node_zone_pair {node_id: zone_id} for later use
-        # the zone_id based on node.csv in field zone_id
-
         # create zone.csv if use_zone_id is True
         if self.use_zone_id:
 
@@ -837,7 +834,7 @@ class GRID2DEMAND:
                                                        verbose=self.verbose)
 
         # Converting dictionary to DataFrame
-        od_list = [(key[0], key[1], value) for key, value in self.zone_od_demand_matrix]
+        od_list = [(key[0], key[1], value) for key, value in self.zone_od_demand_matrix.items()]
         self.df_demand = pd.DataFrame(od_list, columns=['o_zone_id', 'd_zone_id', 'volume'])
         # self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
 

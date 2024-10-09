@@ -183,7 +183,6 @@ def cvt_node_poi_to_arrays(input_dict: dict) -> tuple:
     Returns:
         tuple: Node or POI arrays
     """
-    # Convert dictionary to arrays
     # Create numpy arrays for node coordinates
     coords = np.array([[node_info["x_coord"], node_info["y_coord"]]
                       for node_info in input_dict.values()])
@@ -220,7 +219,7 @@ def cvt_zone_centroid_to_arrays(zone_dict: dict) -> tuple:
     Returns:
         tuple: Zone arrays
     """
-    # Create numpy arrays for zone centroids
+    # Create numpy arrays for zone with x_coord and y_coord
     zone_centroids = np.array([[zone_info["x_coord"], zone_info["y_coord"]]
                               for zone_info in zone_dict.values()])
     zone_ids = np.array([zone_info["id"] for zone_info in zone_dict.values()])
@@ -573,11 +572,15 @@ def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
         for chunk in tqdm(node_chunks, desc="  :Node to closest Zone")
     )
 
-    # Update node_ids with the closest zone_id
+    # Create a mapping from node_ids to their index positions
+    node_id_to_index = {node_id: idx for idx, node_id in enumerate(node_ids)}
+
+    # Update node_zone_mapping using the mapping to get the correct index positions
     node_zone_mapping = np.zeros(len(node_ids), dtype=zone_ids.dtype)
     for node_batch_ids, closest_zone_batch in results:
-        node_batch_ids = np.array(node_batch_ids)
-        node_zone_mapping[node_batch_ids] = closest_zone_batch
+        node_batch_indices = [node_id_to_index[node_id]
+                              for node_id in node_batch_ids]
+        node_zone_mapping[node_batch_indices] = closest_zone_batch
 
     # Step 2: Update node_dict with zone_id, and zone_dict with node_id_list
     missing_nodes = 0
@@ -690,10 +693,15 @@ def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
         for chunk in tqdm(poi_chunks, desc="  :POI to closest Zone")
     )
 
-    # Update node_ids with the closest zone_id
+    # Create a mapping from node_ids to their index positions
+    poi_id_to_index = {poi_id: idx for idx, poi_id in enumerate(poi_ids)}
+
+    # Update node_zone_mapping using the mapping to get the correct index positions
     poi_zone_mapping = np.zeros(len(poi_ids), dtype=zone_ids.dtype)
-    for node_batch_ids, closest_zone_batch in results:
-        poi_zone_mapping[node_batch_ids] = closest_zone_batch
+    for poi_batch_ids, closest_zone_batch in results:
+        poi_batch_indices = [poi_id_to_index[poi_id]
+                             for poi_id in poi_batch_ids]
+        poi_zone_mapping[poi_batch_indices] = closest_zone_batch
 
     # Step 2: Update node_dict with zone_id, and zone_dict with node_id_list
     missing_poi = 0
