@@ -45,8 +45,8 @@ def _get_lng_lat_min_max(node_dict: dict[str, "Node"]) -> list:
     """
 
     # Extract x_coords and y_coords from node_dict
-    x_coords = np.array([node.x_coord for node in node_dict.values()])
-    y_coords = np.array([node.y_coord for node in node_dict.values()])
+    x_coords = np.array([node["x_coord"] for node in node_dict.values()])
+    y_coords = np.array([node["y_coord"] for node in node_dict.values()])
 
     # Get min/max values using numpy operations (vectorized)
     coord_x_min = np.min(x_coords)
@@ -423,8 +423,8 @@ def net2zone(node_dict: dict[int, Node],
 
             cell_polygon = generate_polygon(x_min, x_max, y_min, y_max)
             row_alpha = cvt_int_to_alpha(j)
-            zone_dict[f"{row_alpha}{i}"] = Zone(
-                id=zone_id_flag,
+            zone_dict[f"{zone_id_flag}"] = Zone(
+                id=str(zone_id_flag),
                 name=f"{row_alpha}{i}",
                 x_coord=cell_polygon.centroid.x,
                 y_coord=cell_polygon.centroid.y,
@@ -438,35 +438,35 @@ def net2zone(node_dict: dict[int, Node],
 
             # add boundary zone names to list
             if j == 0:
-                zone_upper_row.append(f"{row_alpha}{i}")
+                zone_upper_row.append(f"{zone_id_flag}")
             if j == len(y_block_maxmin_list) - 1:
-                zone_lower_row.append(f"{row_alpha}{i}")
+                zone_lower_row.append(f"{zone_id_flag}")
 
             if i == 0:
-                zone_left_col.append(f"{row_alpha}{i}")
+                zone_left_col.append(f"{zone_id_flag}")
             if i == len(x_block_minmax_list) - 1:
-                zone_right_col.append(f"{row_alpha}{i}")
+                zone_right_col.append(f"{zone_id_flag}")
 
             # update zone id
             zone_id_flag += 1
 
     # generate outside boundary centroids
-    upper_points = [shapely.geometry.Point(zone_dict[zone_name].x_coord,
-                                           zone_dict[zone_name].y_coord + y_block_height
-                                           ) for zone_name in zone_upper_row]
-    lower_points = [shapely.geometry.Point(zone_dict[zone_name].x_coord,
-                                           zone_dict[zone_name].y_coord - y_block_height
-                                           ) for zone_name in zone_lower_row]
-    left_points = [shapely.geometry.Point(zone_dict[zone_name].x_coord - x_block_width,
-                                          zone_dict[zone_name].y_coord
-                                          ) for zone_name in zone_left_col]
-    right_points = [shapely.geometry.Point(zone_dict[zone_name].x_coord + x_block_width,
-                                           zone_dict[zone_name].y_coord
-                                           ) for zone_name in zone_right_col]
+    upper_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
+                                           zone_dict[zone_id]["y_coord"] + y_block_height
+                                           ) for zone_id in zone_upper_row]
+    lower_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
+                                           zone_dict[zone_id]["y_coord"] - y_block_height
+                                           ) for zone_id in zone_lower_row]
+    left_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] - x_block_width,
+                                          zone_dict[zone_id]["y_coord"]
+                                          ) for zone_id in zone_left_col]
+    right_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] + x_block_width,
+                                           zone_dict[zone_id]["y_coord"]
+                                           ) for zone_id in zone_right_col]
     points_lst = upper_points + lower_points + left_points + right_points
     for i in range(len(points_lst)):
-        zone_dict[f"gate{i}"] = Zone(
-            id=zone_id_flag,
+        zone_dict[f"{zone_id_flag}"] = Zone(
+            id=str(zone_id_flag),
             name=f"gate{i}",
             x_coord=points_lst[i].x,
             y_coord=points_lst[i].y,
@@ -729,8 +729,7 @@ def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
 def calc_zone_od_matrix(zone_dict: dict,
                         *,
                         cpu_cores: int = -1,
-                        sel_orig_zone_id: list = [],
-                        sel_dest_zone_id: list = [],
+                        selected_zone_id: list = [],
                         pct: float = 0.1, verbose: bool = False) -> dict[tuple[str, str], float]:
     """Calculate the zone-to-zone distance matrix in chunks to handle large datasets.
 
@@ -751,12 +750,12 @@ def calc_zone_od_matrix(zone_dict: dict,
     chunk_size = pkg_settings["data_chunk_size"]
 
     # Use pct to randomly select zones if no origin/destination zones are specified
-    if not sel_orig_zone_id and not sel_dest_zone_id:
+    if not selected_zone_id:
         num_keys_to_select = int(total_zones * pct)
         selected_zone_ids = random.sample(list(zone_dict.keys()), num_keys_to_select)
         print(f"  : Randomly selected {num_keys_to_select} from {pct * 100} % of {total_zones} zones")
     else:
-        selected_zone_ids = set(sel_orig_zone_id + sel_dest_zone_id)
+        selected_zone_ids = set(selected_zone_id)
 
     # Extract selected zones and their coordinates as numpy arrays
     zone_ids = np.array([zone['id'] for zone in zone_dict.values() if zone['id'] in selected_zone_ids])
@@ -774,7 +773,7 @@ def calc_zone_od_matrix(zone_dict: dict,
         elif combination_type == "combinations":
             return list(itertools.combinations(chunk1, 2))
 
-    if sel_orig_zone_id or sel_dest_zone_id:
+    if selected_zone_id:
         # Using itertools.product if origin/destination are specified
         combinations = Parallel(n_jobs=cpu_cores)(
             delayed(generate_combinations_chunk)(chunk1, zone_ids, "product")

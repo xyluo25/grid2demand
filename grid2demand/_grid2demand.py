@@ -49,9 +49,6 @@ class GRID2DEMAND:
     def __init__(self,
                  input_dir: str = os.getcwd(),
                  *,
-                 node_file: str = "",
-                 poi_file: str = "",
-                 zone_file: str = "",
                  output_dir: str = "",
                  use_zone_id: bool = False,
                  mode_type: str = "auto",
@@ -61,9 +58,6 @@ class GRID2DEMAND:
 
         Args:
             input_dir (str, optional): input directory. Defaults to os.getcwd().
-            node_file (str, optional): node file. Defaults to "".
-            poi_file (str, optional): poi file. Defaults to "".
-            zone_file (str, optional): zone file. Defaults to "".
             output_dir (str, optional): output directory. Defaults to "".
             use_zone_id (bool, optional): whether to use zone_id. Defaults to False.
             verbose (bool, optional): whether to print verbose information. Defaults to False.
@@ -74,38 +68,31 @@ class GRID2DEMAND:
         # initialize input parameters
         self.input_dir = path2linux(input_dir)
 
-        self.node_file = node_file
-        self.poi_file = poi_file
-        self.zone_file = zone_file
-
         # initialize output parameters
         self.output_dir = path2linux(output_dir) if output_dir else self.input_dir
         self.verbose = verbose
         self.use_zone_id = use_zone_id
         self.mode_type = mode_type
-        self.kwargs = kwargs
 
         # check mode type is valid
         if self.mode_type not in ["auto", "bike", "walk"]:
             raise ValueError("Error: mode_type must be auto, bike or walk.")
 
-        # load default package settings,
-        # user can modify the settings before running the model
+        # update node_file, poi_file, zone_file if specified in kwargs
+        if node_file := kwargs.get("node_file"):
+            self.node_file = path2linux(node_file)
+
+        if poi_file := kwargs.get("poi_file"):
+            self.poi_file = path2linux(poi_file)
+
+        if zone_file := kwargs.get("zone_file"):
+            self.zone_file = path2linux(zone_file)
+
+        # load default package settings, can be modified by user
         self.__load_pkg_settings()
 
         # # check input directory
         self.__check_input_dir()
-
-        # set default zone in geometry or centroid as False
-        self.is_geometry = False
-        self.is_centroid = False
-
-        # set default poi_trip_rate, node_prod_attr, zone_prod_attr as False
-        self.is_poi_trip_rate = False
-        self.is_node_prod_attr = False
-        self.is_zone_prod_attr = False
-        self.is_zone_od_dist_matrix = False
-        self.is_sync_geometry = False
 
     def __check_input_dir(self) -> None:
         """check input directory
@@ -166,6 +153,8 @@ class GRID2DEMAND:
             print("  : Input directory is valid.\n")
 
     def __load_pkg_settings(self) -> None:
+        """load default package settings and internal configuration variables
+        """
         if self.verbose:
             print("  : Loading default package settings...")
         self.pkg_settings = pkg_settings
@@ -173,6 +162,20 @@ class GRID2DEMAND:
         # add zone_id to node_dict if use_zone_id is True
         if self.use_zone_id and "zone_id" not in self.pkg_settings["node_fields"]:
             self.pkg_settings["node_fields"].append("zone_id")
+
+        # set internal configuration variables to make sure the following steps are executed in order
+        self.__config = {
+            # set default zone is geometry or centroid as False
+            "is_geometry": False,
+            "is_centroid": False,
+
+            # set default poi_trip_rate, node_prod_attr, zone_prod_attr as False
+            "is_poi_trip_rate": False,
+            "is_node_prod_attr": False,
+            "is_zone_prod_attr": False,
+            "is_zone_od_dist_matrix": False,
+            "is_sync_geometry": False
+        }
 
         if self.verbose:
             print("  : Package settings loaded successfully.\n")
@@ -261,8 +264,6 @@ class GRID2DEMAND:
     def load_network(self,
                      *,
                      input_dir: str = "",
-                     node_file: str = "",
-                     poi_file: str = "",
                      return_value: bool = False) -> dict[str, dict]:
         """read node.csv and poi.csv and return network_dict
 
@@ -280,14 +281,7 @@ class GRID2DEMAND:
         if input_dir:
             self.input_dir = path2linux(input_dir)
 
-        if node_file:
-            self.node_file = path2linux(node_file)
-
-        if poi_file:
-            self.poi_file = path2linux(poi_file)
-
         # check input directory if input_dir is specified
-        # or node and poi files are also specified
         if input_dir:
             self.__check_input_dir()
 
@@ -639,8 +633,7 @@ class GRID2DEMAND:
 
     def calc_zone_od_distance_matrix(self, zone_dict: dict = "",
                                      *,
-                                     sel_orig_zone_id: list = [],
-                                     sel_dest_zone_id: list = [],
+                                     selected_zone_id: list = [],
                                      pct: float = 0.1,
                                      return_value: bool = False) -> dict[tuple, float]:
         """calculate zone-to-zone od distance matrix
@@ -659,8 +652,7 @@ class GRID2DEMAND:
 
         self.zone_od_dist_matrix = calc_zone_od_matrix(self.zone_dict,
                                                        cpu_cores=self.pkg_settings.get("set_cpu_cores"),
-                                                       sel_orig_zone_id=sel_orig_zone_id,
-                                                       sel_dest_zone_id=sel_dest_zone_id,
+                                                       selected_zone_id=selected_zone_id,
                                                        pct=pct,
                                                        verbose=self.verbose)
         self.is_zone_od_dist_matrix = True
@@ -720,10 +712,6 @@ class GRID2DEMAND:
             dict[int, Node]: the updated node_dict {node_id: Node}
         """
 
-        # if not all([node_dict, poi_dict]):
-        #     node_dict = self.node_dict
-        #     poi_dict = self.poi_dict
-
         # update input parameters if specified
         if node_dict:
             self.node_dict = node_dict
@@ -755,10 +743,6 @@ class GRID2DEMAND:
         if trip_purpose not in [1, 2, 3]:
             raise ValueError('Error: trip_purpose must be 1, 2 or 3, ' +
                              'represent home-based work, home-based others, non home-based.')
-
-        # calculate od distance matrix if not exists
-        if not self.is_zone_od_dist_matrix:
-            self.calc_zone_od_distance_matrix(zone_dict=self.zone_dict)
 
         # generate poi trip rate for each poi if not generated
         if not self.is_poi_trip_rate:
@@ -818,6 +802,12 @@ class GRID2DEMAND:
         # synchronize geometry between zone and node/poi
         if not self.is_sync_geometry:
             self.sync_geometry_between_zone_and_node_poi()
+
+        # calculate od distance matrix if not exists
+        if not self.is_zone_od_dist_matrix:
+            raise Exception("Error: zone_od_dist_matrix does not exist. \n"
+                            "Please run net.calc_zone_od_distance_matrix()"
+                            "before net.run_gravity_model().")
 
         # calculate zone production and attraction based on node production and attraction
         if not self.is_zone_prod_attr:

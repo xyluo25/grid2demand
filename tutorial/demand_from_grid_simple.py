@@ -24,11 +24,13 @@ if __name__ == "__main__":
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=input_dir, verbose=True)
 
-    # Step 1: Load node and poi data from input directory
+    # Step 1: Load node and poi from input directory
     net.load_network()
 
     # Step 2: Generate zone from node
     net.net2zone(num_x_blocks=10, num_y_blocks=10)
+
+    net.calc_zone_od_distance_matrix(pct=1)
 
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()
