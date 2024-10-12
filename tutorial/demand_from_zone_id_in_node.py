@@ -30,7 +30,9 @@ if __name__ == "__main__":
     # Step 2: Generate zone dictionary from node dictionary
     #   by specifying number of x blocks and y blocks
     net.taz2zone()
+    net.map_mapping_between_zone_and_node_poi()
 
+    net.calc_zone_od_distance_matrix(pct=1)
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()
 

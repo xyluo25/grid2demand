@@ -19,11 +19,8 @@ class Node:
         y_coord: The y coordinate of the node.
         production: The production of the node.
         attraction: The attraction of the node.
-        is_boundary: The boundary flag of the node. = 1 (current node is boundary node)
         zone_id: The zone ID. default == -1, only three conditions to become an activity node
                 1) POI node, 2) is_boundary node(freeway),  3) residential in activity_type
-        poi_id: The POI ID of the node. default = -1; to be assigned to a POI ID after reading poi.csv
-        activity_type: The activity type of the node. provided from osm2gmns such as motoway, residential, ...
         geometry: The geometry of the node. based on wkt format.
         _zone_id: The zone ID. default == -1,
                 this will be assigned if field zone_id exists in the node.csv and is not empty
@@ -35,7 +32,7 @@ class Node:
     attraction: float = 0
     # is_boundary: int = 0
     # ctrl_type: int = -1
-    zone_id: str | None = None
+    zone_id: str = ''
     # poi_id: int = -1
     # activity_type: str = ''
     geometry: str = ''

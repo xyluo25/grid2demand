@@ -205,7 +205,10 @@ def cvt_zone_geometry_to_arrays(zone_dict: dict) -> tuple:
     for zone_info in zone_dict.values():
         zone_bboxes.append([zone_info["x_min"], zone_info["x_max"],
                            zone_info["y_min"], zone_info["y_max"]])
-        zone_polygon = shapely.from_wkt(zone_info["geometry"])
+        if isinstance(zone_info["geometry"], shapely.Polygon):
+            zone_polygon = zone_info["geometry"]
+        else:
+            zone_polygon = shapely.from_wkt(zone_info["geometry"])
         zone_polygons.append(zone_polygon)
     return (np.array(zone_bboxes), np.array(zone_polygons))
 
@@ -483,7 +486,7 @@ def net2zone(node_dict: dict[int, Node],
 
 
 @func_running_time
-def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
+def map_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Map nodes to zone cells
 
     Parameters
@@ -528,7 +531,7 @@ def sync_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
     return {"zone_dict": zone_cp, "node_dict": node_cp}
 
 
-def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
+def map_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Synchronize zone in centroids and nodes to update zone_id attribute for nodes
 
     Args:
@@ -605,7 +608,7 @@ def sync_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int
 
 
 @func_running_time
-def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
+def map_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:
     """Synchronize zone cells and POIs to update zone_id attribute for POIs and poi_id_list attribute for zone cells
 
     Args:
@@ -650,7 +653,7 @@ def sync_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int =
     return {"zone_dict": zone_cp, "poi_dict": poi_cp}
 
 
-def sync_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
+def map_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 1, verbose: bool = False) -> dict:
     """Synchronize zone in centroids and nodes to update zone_id attribute for nodes
 
     Args:

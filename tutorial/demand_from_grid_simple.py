@@ -29,11 +29,11 @@ if __name__ == "__main__":
 
     # Step 2: Generate zone from node
     net.net2zone(num_x_blocks=10, num_y_blocks=10)
-
+    # net.map_mapping_between_zone_and_node_poi()
     net.calc_zone_od_distance_matrix(pct=1)
 
     # Step 3: Run gravity model to generate agent-based demand
     net.run_gravity_model()
 
     # Step 4: Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
-    net.save_results_to_csv(zone=True, node=False, poi=False, agent=False, overwrite_file=False)
+    net.save_results_to_csv(zone=True, node=True, poi=True, agent=True, overwrite_file=False)

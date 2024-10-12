@@ -65,16 +65,12 @@ def _create_node_from_dataframe(df_node: pd.DataFrame) -> dict[int, Node]:
     node_dict = {}
     for i in range(len(df_node)):
         try:
-            # check whether zone_id field in node.csv or not
             # if zone_id field exists and is not empty, assign it to _zone_id
             try:
-                _zone_id = str(df_node.loc[i, 'zone_id'])
-
-                # check if _zone is none or empty, assign -1
-                if pd.isna(_zone_id) or not _zone_id:
-                    _zone_id = "-1"
-
+                zone_id = str(int(df_node.loc[i, 'zone_id']))
+                _zone_id = zone_id
             except Exception:
+                zone_id = ''
                 _zone_id = "-1"
 
             # get node id
@@ -89,6 +85,7 @@ def _create_node_from_dataframe(df_node: pd.DataFrame) -> dict[int, Node]:
 
             node.id = node_id
             node._zone_id = _zone_id
+            node.zone_id = zone_id
             node.geometry = shapely.Point(x_coord, y_coord)
             node_dict[node_id] = asdict(node)
 

@@ -58,12 +58,6 @@ if __name__ == "__main__":
     # NOTE: you can view zone-to-zone od distance matrix by using the following attributes
     # net.zone_od_dist_matrix
 
-    # Step 5: Generate poi trip rate for each poi
-    net.gen_poi_trip_rate(trip_rate_file="", trip_purpose=1)
-
-    # Step 6: Generate node production attraction for each node based on poi_trip_rate
-    net.gen_node_prod_attr(node_dict=net.node_dict, poi_dict=net.poi_dict)
-
     # Step 6.1: Calculate zone production and attraction based on node production and attraction
     net.calc_zone_prod_attr()
 
