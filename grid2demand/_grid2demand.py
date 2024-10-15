@@ -206,7 +206,8 @@ class GRID2DEMAND:
 
             # check if activity nodes exist, if not raise exception
             if not _activity_node_id_val:
-                raise Exception("Error: No activity nodes found in node.csv. Please check node.csv.")
+                raise Exception("Error: No activity nodes found in node.csv (zone_id column is empty)."
+                                " Please check node.csv.")
 
             # if activity nodes exist, create node_dict_activity_nodes
             self.node_dict_activity_nodes = {}
@@ -233,6 +234,12 @@ class GRID2DEMAND:
                 print(f"  : zone.csv is generated (use_zone_id=True) based on node.csv in {self.input_dir}.\n")
 
         self.node_dict = node_dict
+
+        # check if area field is in df_poi_chunk, if it's empty, raise error
+        poi_df = pd.read_csv(self.poi_file, nrows=3)
+        if "area" in poi_df.columns and poi_df["area"].isnull().any():
+            raise Exception(
+                "Error: poi.csv contains empty area field. Please fill in the area field in poi.csv.")
 
         self.poi_dict = read_poi(self.poi_file,
                                  self.pkg_settings.get("set_cpu_cores"),
@@ -526,7 +533,7 @@ class GRID2DEMAND:
     def calc_zone_od_distance_matrix(self, zone_dict: dict = "",
                                      *,
                                      selected_zone_id: list = [],
-                                     pct: float = 0.1) -> None:
+                                     pct: float = 1.0) -> None:
         """calculate zone-to-zone od distance matrix
 
         Args:

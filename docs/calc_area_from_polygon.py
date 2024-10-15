@@ -10,6 +10,7 @@
 import shapely
 import pandas as pd
 from pyproj import Transformer
+import os
 
 
 def calc_area_from_wkt_geometry(path: str) -> pd.DataFrame:
@@ -53,7 +54,9 @@ def calc_area_from_wkt_geometry(path: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    path = "./poi.csv"
+    in_dir = r"C:\Users\xyluo25\anaconda3_workspace\001_GitHub\grid2demand\datasets\demand_from_grid_use_zone_id_in_node\UMD"
+    filename = "poi.csv"
+    in_file = os.path.join(in_dir, filename)
 
-    df_poi = calc_area_from_wkt_geometry(path)
-    df_poi.to_csv("poi_1.csv", index=False)
+    df_poi = calc_area_from_wkt_geometry(in_file)
+    df_poi.to_csv(in_file, index=False)

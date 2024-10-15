@@ -76,7 +76,7 @@ class POI:
     building: str = ""
     amenity: str = ""
     centroid: str = ""
-    area: str = ""
+    area: float = 0.0
     trip_rate: dict = field(default_factory=dict)
     zone_id: str | None = None
     geometry: str = ''

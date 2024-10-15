@@ -397,8 +397,8 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
     chunk_size = pkg_settings["data_chunk_size"]
 
     if verbose:
-        print(f"  : Reading poi.csv with specified columns: {poi_required_cols} \
-                    \n    and chunksize {chunk_size} for iterations...")
+        print(f"  : Reading poi.csv with specified columns: {poi_required_cols}"
+              f"  and chunksize {chunk_size} for iterations...")
     try:
         # Get total rows in poi.csv and calculate total chunks
         total_rows = sum(1 for _ in open(poi_file)) - 1  # Exclude header row
