@@ -71,8 +71,8 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
                     d_zone_id=d_zone_id,
                     o_node_id=o_node_id,
                     d_node_id=d_node_id,
-                    geometry=(f"LINESTRING({node_dict[o_node_id]["x_coord"]} {node_dict[o_node_id]["y_coord"]},"
-                              f"{node_dict[d_node_id]["x_coord"]} {node_dict[d_node_id]["y_coord"]})"),
+                    geometry=(f"LINESTRING({node_dict[o_node_id]['x_coord']} {node_dict[o_node_id]['y_coord']},"
+                              f"{node_dict[d_node_id]['x_coord']} {node_dict[d_node_id]['y_coord']})"),
                     departure_time=departure_time
                 )
             )

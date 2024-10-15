@@ -8,7 +8,6 @@
 """
 
 import os
-import contextlib
 
 import pandas as pd
 import shapely

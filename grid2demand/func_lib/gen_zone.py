@@ -8,14 +8,10 @@
 from __future__ import absolute_import
 import itertools
 import copy
-from multiprocessing import Pool
-from multiprocessing import Manager
 
-import pandas as pd
 import shapely
 import numpy as np
 import shapely.geometry
-from shapely.strtree import STRtree
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from pyufunc import (calc_distance_on_unit_sphere,
@@ -26,11 +22,7 @@ from pyufunc import (calc_distance_on_unit_sphere,
 
 from grid2demand.utils_lib.net_utils import Zone, Node
 from grid2demand.utils_lib.pkg_settings import pkg_settings
-from tqdm.contrib.concurrent import process_map
-import datetime
 import random
-import math
-from joblib import Parallel, delayed
 
 
 # supporting functions
@@ -515,8 +507,11 @@ def map_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int 
         print(f"  : Parallel sync zone geometry and node using {cpu_cores} cpu cores.")
 
     # Parallel processing for zones
-    results = Parallel(n_jobs=cpu_cores)(delayed(points_map_to_zone)(
-        zone_bboxes[idx], zone_polygons[idx], node_coords, node_ids) for idx in tqdm(range(len(zone_bboxes)), desc="  :Node to Zone"))
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(points_map_to_zone)(zone_bboxes[idx],
+                                    zone_polygons[idx],
+                                    node_coords, node_ids) for idx in tqdm(range(len(zone_bboxes)),
+                                                                           desc="  :Node to Zone"))
 
     # Collect results back into zone_dict
     for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
@@ -637,8 +632,11 @@ def map_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 
         print(f"  : Parallel sync zone geometry and node using {cpu_cores} cpu cores.")
 
     # Parallel processing for zones
-    results = Parallel(n_jobs=cpu_cores)(delayed(points_map_to_zone)(
-        zone_bboxes[idx], zone_polygons[idx], poi_coords, poi_ids) for idx in tqdm(range(len(zone_bboxes)), desc="  :POI to Zone"))
+    results = Parallel(n_jobs=cpu_cores)(
+        delayed(points_map_to_zone)(zone_bboxes[idx],
+                                    zone_polygons[idx],
+                                    poi_coords, poi_ids) for idx in tqdm(range(len(zone_bboxes)),
+                                                                         desc="  :POI to Zone"))
 
     # Collect results back into zone_dict
     for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
