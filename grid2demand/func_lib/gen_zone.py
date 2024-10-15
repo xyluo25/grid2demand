@@ -315,7 +315,7 @@ def add_zone_to_pois(poi_dict: dict, zone_dict: dict) -> dict:
 
 
 @func_running_time
-def net2zone(node_dict: dict[int, Node],
+def net2grid(node_dict: dict[int, Node],
              num_x_blocks: int = 0,
              num_y_blocks: int = 0,
              cell_width: float = 0,
@@ -758,7 +758,7 @@ def calc_zone_od_matrix(zone_dict: dict,
         selected_zone_ids = random.sample(list(zone_dict.keys()), num_keys_to_select)
         print(f"  : Randomly selected {num_keys_to_select} from {pct * 100} % of {total_zones} zones")
     else:
-        selected_zone_ids = set(selected_zone_id)
+        selected_zone_ids = [str(id) for id in set(selected_zone_id)]
 
     # Extract selected zones and their coordinates as numpy arrays
     zone_ids = np.array([zone['id'] for zone in zone_dict.values() if zone['id'] in selected_zone_ids])

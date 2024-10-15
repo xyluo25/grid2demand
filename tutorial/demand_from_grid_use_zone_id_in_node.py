@@ -19,7 +19,7 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    input_dir = r"../grid2demand/datasets/demand_from_zone_id_in_node/ASU/auto"
+    input_dir = r"datasets\demand_from_grid_use_zone_id_in_node\ASU\auto"
 
     # Initialize a GRID2DEMAND object, and specify the mode_type as "auto" in default
     net = gd.GRID2DEMAND(input_dir, use_zone_id=True, mode_type="auto")
@@ -27,14 +27,20 @@ if __name__ == "__main__":
     # Step 1: Load node and poi data from input directory
     net.load_network()
 
-    # Step 2: Generate zone dictionary from node dictionary
-    #   by specifying number of x blocks and y blocks
+    # Step 2: create grids by specifying number of x blocks and y blocks
+    net.net2grid()
+
+    # Step 3: Generate zone dictionary from zone.csv
     net.taz2zone()
+
+    # Step 4: Map the zone id in node and poi, vise versa
     net.map_mapping_between_zone_and_node_poi()
 
+    # Step 5: Calculate zone-to-zone travel time matrix
     net.calc_zone_od_distance_matrix(pct=1)
-    # Step 3: Run gravity model to generate agent-based demand
+
+    # Step 6: Run gravity model to generate agent-based demand
     net.run_gravity_model()
 
-    # Step 4: Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
+    # Step 7: Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
     net.save_results_to_csv(zone=True, node=True, poi=True, overwrite_file=False)

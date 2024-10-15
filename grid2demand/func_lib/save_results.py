@@ -87,54 +87,21 @@ def save_node(self, overwrite_file: bool = True) -> None:
 
     if not hasattr(self, "node_dict"):
         print("  : node_dict does not exist. Please run sync_geometry_between_zone_and_node_poi() first.")
-        return
+        return None
 
     if overwrite_file:
         path_output = path2linux(os.path.join(self.output_dir, "node.csv"))
     else:
         path_output = generate_unique_filename(path2linux(os.path.join(self.output_dir, "node.csv")))
 
-    node_df = pd.DataFrame(self.node_dict.values())
+    # if activity type is used, merge node_dict and node_dict_activity_nodes
+    if self.node_dict_activity_type:
+        node_dict = {**self.node_dict, **self.node_dict_activity_nodes}
+    else:
+        node_dict = self.node_dict
 
-    # update node data if centroid is used, ignore zone_id if original zone_id is empty
-    # if self.is_centroid:
-    #     for i in range(len(node_df)):
-    #         original_zone_id = node_df.loc[i, "_zone_id"]
-    #         if original_zone_id == -1:
-    #             node_df.loc[i, "zone_id"] = None
-
-    if self.use_zone_id:
-        node_df["zone_id"] = ""
-        node_is_zone_df = pd.DataFrame(self._node_is_zone.values())
-        node_is_zone_df["zone_id"] = node_is_zone_df["_zone_id"]
-
-        node_df = pd.concat([node_df, node_is_zone_df], ignore_index=True)
-
+    node_df = pd.DataFrame(node_dict.values())
     node_df.rename(columns={"id": "node_id"}, inplace=True)
-
-    if self.pkg_settings["node_export_activity"]:
-
-        # if activity in "residential", "boundary", keep zone id
-        # for other activities nodes, set not showing zone id
-        # if not activity_type, select one node as zone node, and remove duplicate zone id
-
-        activity_type_list = node_df["activity_type"].unique().tolist()
-
-        if "boundary" in activity_type_list or "residential" in activity_type_list:
-            for i in range(len(node_df)):
-                if node_df.loc[i, "activity_type"] not in ["boundary", "residential"]:
-                    node_df.loc[i, "zone_id"] = None
-        else:
-            # find unique zone id in the node dataframe
-            node_df.loc[node_df["zone_id"].duplicated(), "zone_id"] = None
-
-    # at zone_id as int type
-    # Custom function to handle NA and inf values
-    # def safe_convert_to_int(value):
-    #     return value if pd.isna(value) or np.isinf(value) else int(value)
-
-    # node_df["zone_id"] = node_df["zone_id"].apply(safe_convert_to_int)
-
     node_df.to_csv(path_output, index=False)
     print(f"  : Successfully saved updated node to node.csv to {self.output_dir}")
     return None
@@ -173,9 +140,9 @@ def save_zone_od_dist_table(self, overwrite_file: bool = True) -> None:
     if not hasattr(self, "zone_od_dist_matrix"):
         print("  : zone_od_dist_matrix does not exist. Please run calc_zone_od_distance_matrix() first.")
     else:
-        zone_od_dist_table_df = pd.DataFrame(self.zone_od_dist_matrix.values())
-        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "d_zone_id",
-                                                       "dist_km", "geometry"]]
+        od_dist_list = [[key[0], key[1], value] for key, value in self.zone_od_dist_matrix.items()]
+        zone_od_dist_table_df = pd.DataFrame(od_dist_list)
+        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "d_zone_id", "dist_km", ]]
         zone_od_dist_table_df.to_csv(path_output, index=False)
         print(f"  : Successfully saved zone_od_dist_table.csv to {self.output_dir}")
     return None
@@ -194,12 +161,11 @@ def save_zone_od_dist_matrix(self, overwrite_file: bool = True) -> None:
         print(
             "  : zone_od_dist_matrix does not exist. Please run calc_zone_od_distance_matrix() first.")
     else:
-        zone_od_dist_table_df = pd.DataFrame(self.zone_od_dist_matrix.values())
-        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "o_zone_name", "d_zone_id",
-                                                       "d_zone_name", "dist_km", "geometry"]]
-
-        zone_od_dist_matrix_df = zone_od_dist_table_df.pivot(index='o_zone_name',
-                                                             columns='d_zone_name',
+        od_dist_list = [[key[0], key[1], value] for key, value in self.zone_od_dist_matrix.items()]
+        zone_od_dist_table_df = pd.DataFrame(od_dist_list)
+        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "d_zone_id", "dist_km", ]]
+        zone_od_dist_matrix_df = zone_od_dist_table_df.pivot(index='o_zone_id',
+                                                             columns='d_zone_id',
                                                              values='dist_km')
 
         zone_od_dist_matrix_df.to_csv(path_output)

@@ -19,16 +19,13 @@ from pyufunc import (path2linux,
                      func_time)
 
 from grid2demand.utils_lib.pkg_settings import pkg_settings
-from grid2demand.utils_lib.net_utils import (Node,
-                                             POI,
-                                             Zone)
 from grid2demand.utils_lib.utils import check_required_files_exist
 
 from grid2demand.func_lib.read_node_poi import (read_node,
                                                 read_poi,
                                                 read_zone_by_geometry,
                                                 read_zone_by_centroid)
-from grid2demand.func_lib.gen_zone import (net2zone,
+from grid2demand.func_lib.gen_zone import (net2grid,
                                            map_zone_geometry_and_node,
                                            map_zone_geometry_and_poi,
                                            map_zone_centroid_and_node,
@@ -201,32 +198,35 @@ class GRID2DEMAND:
 
         # create zone.csv if use_zone_id is True
         if self.use_zone_id:
-
-            self.node_dict_activity_nodes = {}
-
-            _zone_id_val = [
-                [node_id,
-                 node_dict[node_id]["_zone_id"],
-                 node_dict[node_id]["x_coord"],
-                 node_dict[node_id]["y_coord"],
-                 shapely.Point(
-                     node_dict[node_id]["x_coord"],
-                     node_dict[node_id]["y_coord"])]
+            # extract activity nodes from node.csv
+            _activity_node_id_val = [
+                node_id
                 for node_id in node_dict
                 if node_dict[node_id]["_zone_id"] != "-1"]
 
-            # delete zone from node_dict
-            for i in _zone_id_val:
-                node_id = i[0]
+            # check if activity nodes exist, if not raise exception
+            if not _activity_node_id_val:
+                raise Exception("Error: No activity nodes found in node.csv. Please check node.csv.")
+
+            # if activity nodes exist, create node_dict_activity_nodes
+            self.node_dict_activity_nodes = {}
+            for node_id in _activity_node_id_val:
                 self.node_dict_activity_nodes[node_id] = node_dict[node_id]
                 del node_dict[node_id]
 
             # Create zone.csv file from node.csv with zone_id, x_coord, y_coord as zone centroid
             if self.kwargs.get("node_as_zone_centroid"):
-                _zone_col = ["node_id", "zone_id", "x_coord", "y_coord", "geometry"]
+                _zone_id_val = [
+                    [node_dict[node_id]["_zone_id"],
+                     node_dict[node_id]["x_coord"],
+                     node_dict[node_id]["y_coord"],
+                     shapely.Point(
+                         node_dict[node_id]["x_coord"],
+                         node_dict[node_id]["y_coord"])]
+                    for node_id in set(_activity_node_id_val)]
+
+                _zone_col = ["zone_id", "x_coord", "y_coord", "geometry"]
                 _zone_df = pd.DataFrame(_zone_id_val, columns=_zone_col)
-                _zone_df = _zone_df.drop_duplicates(subset=["zone_id"])  # remove duplicates rows
-                _zone_df = _zone_df[["zone_id", "x_coord", "y_coord", "geometry"]]  # remove node_id
                 _zone_df = _zone_df.sort_values(by=["zone_id"])
                 self.zone_file = path2linux(os.path.join(self.input_dir, "zone.csv"))
                 _zone_df.to_csv(self.zone_file, index=False)
@@ -238,7 +238,7 @@ class GRID2DEMAND:
                                  self.pkg_settings.get("set_cpu_cores"),
                                  verbose=self.verbose)
 
-        return {"node_dict": self.node_dict, "poi_dict": self.poi_dict} if return_value else None
+        return None
 
     def net2grid(self, *,
                  num_x_blocks: int = 10,
@@ -287,7 +287,7 @@ class GRID2DEMAND:
         # generate zone based on zone_id in node.csv
         node_dict = self.node_dict
 
-        zone_dict_with_gate = net2zone(node_dict,
+        zone_dict_with_gate = net2grid(node_dict,
                                        num_x_blocks,
                                        num_y_blocks,
                                        cell_width,
@@ -302,9 +302,10 @@ class GRID2DEMAND:
         zone_df = pd.DataFrame(zone_dict.values())
         zone_df.rename(columns={"id": "zone_id"}, inplace=True)
         path_output = path2linux(os.path.join(self.input_dir, "zone.csv"))
+        self.zone_file = path_output
         zone_df.to_csv(path_output, index=False)
 
-        print(f"  : net2grid saved grids as zone.csv to {self.output_dir} \n")
+        print(f"  : net2grid saved grids as zone.csv to {path_output} \n")
         return None
 
     @func_time
@@ -454,7 +455,6 @@ class GRID2DEMAND:
         # synchronize zone with node
         if hasattr(self, "node_dict"):
             print("  : Mapping zone with node...")
-
             if hasattr(self, "node_dict_activity_nodes"):
                 _node_dict = self.node_dict_activity_nodes
             else:
@@ -580,14 +580,22 @@ class GRID2DEMAND:
 
         # generate node production and attraction for each node based on poi_trip_rate if not generated
         if not self.__config["is_node_prod_attr"]:
-            self.node_dict = gen_node_prod_attr(self.node_dict, self.poi_dict, verbose=self.verbose)
+            if hasattr(self, "node_dict_activity_nodes"):
+                node_dict = self.node_dict_activity_nodes
+            else:
+                node_dict = self.node_dict
+            node_dict = gen_node_prod_attr(node_dict, self.poi_dict, verbose=self.verbose)
             self.__config["is_node_prod_attr"] = True
 
         # calculate zone production and attraction based on node production and attraction
-        self.zone_dict = calc_zone_production_attraction(self.node_dict,
+        self.zone_dict = calc_zone_production_attraction(node_dict,
                                                          self.poi_dict,
                                                          self.zone_dict,
                                                          verbose=self.verbose)
+        if hasattr(self, "node_dict_activity_nodes"):
+            self.node_dict_activity_nodes = node_dict
+        else:
+            self.node_dict = node_dict
         self.__config["is_zone_prod_attr"] = True
         return None
 
@@ -597,8 +605,7 @@ class GRID2DEMAND:
                           beta: float = -0.02,
                           gamma: float = -0.123,
                           trip_rate_file: str = "",
-                          trip_purpose: int = 1,
-                          return_value: bool = False) -> pd.DataFrame:
+                          trip_purpose: int = 1) -> None:
         """run gravity model to generate demand
 
         Args:
@@ -637,21 +644,21 @@ class GRID2DEMAND:
                                      trip_purpose=trip_purpose)
 
         # run gravity model to generate demand
-        self.zone_od_demand_matrix = run_gravity_model(self.zone_dict,
-                                                       self.zone_od_dist_matrix,
-                                                       trip_purpose,
-                                                       alpha,
-                                                       beta,
-                                                       gamma,
-                                                       verbose=self.verbose)
+        zone_od_demand_matrix = run_gravity_model(self.zone_dict,
+                                                  self.zone_od_dist_matrix,
+                                                  trip_purpose,
+                                                  alpha,
+                                                  beta,
+                                                  gamma,
+                                                  verbose=self.verbose)
 
         # Converting dictionary to DataFrame
-        od_list = [(key[0], key[1], value) for key, value in self.zone_od_demand_matrix.items()]
+        od_list = [(key[0], key[1], value) for key, value in zone_od_demand_matrix.items()]
         self.df_demand = pd.DataFrame(od_list, columns=['o_zone_id', 'd_zone_id', 'volume'])
         # self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
 
         print("  : Successfully generated OD demands.")
-        return self.df_demand if return_value else None
+        return None
 
     def gen_agent_based_demand(self) -> None:
         """generate agent-based demand
@@ -661,8 +668,12 @@ class GRID2DEMAND:
             zone_dict (dict): _description_. Defaults to "".
             df_demand (pd.DataFrame): _description_. Defaults to "".
         """
+        if hasattr(self, "node_dict_activity_nodes"):
+            node_dict = self.node_dict_activity_nodes
+        else:
+            node_dict = self.node_dict
 
-        self.df_agent = gen_agent_based_demand(self.node_dict, self.zone_dict,
+        self.df_agent = gen_agent_based_demand(node_dict, self.zone_dict,
                                                df_demand=self.df_demand, verbose=self.verbose)
         return None
 

@@ -25,7 +25,6 @@ pkg_settings = {
 
     # if input data is too large, you can split the input data into chunks and process them separately
     "data_chunk_size": 5000,
-    "node_export_activity": True,  # export zone id with node activity type in residential and boundary nodes
 
     # run the program in parallel mode, if cpu_cores > 1
     "set_cpu_cores": os.cpu_count(),
@@ -68,5 +67,3 @@ pkg_settings = {
                               'yes'               : {1: 1.15}
                               }
 }
-
-# save files ids to ingeter
