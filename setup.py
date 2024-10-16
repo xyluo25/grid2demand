@@ -23,7 +23,7 @@ except Exception:
 
 setuptools.setup(
     name="grid2demand",  # Replace with your own username
-    version="1.0.0a2",
+    version="1.0.0a3",
     author="Xiangyong Luo, Dr.Xuesong (Simon) Zhou",
     author_email="luoxiangyong01@gmail.com, xzhou74@asu.edu",
     description="A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model",
