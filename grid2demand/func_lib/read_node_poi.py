@@ -1,32 +1,30 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Monday, September 4th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
+"""
 
 from __future__ import absolute_import
 
 import os
-from multiprocessing import Pool
-from dataclasses import make_dataclass, fields, asdict
+import itertools
+from dataclasses import fields, asdict
 from typing import Any
 
 import pandas as pd
 import shapely
-from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
 
 from grid2demand.utils_lib.net_utils import Node, POI, Zone
 from grid2demand.utils_lib.pkg_settings import pkg_settings
 from grid2demand.utils_lib.utils import (check_required_files_exist,
-                                         extend_dataclass,
-                                         create_dataclass_from_dict)
+                                         extend_dataclass)
 from pyufunc import (func_running_time, path2linux,
                      get_filenames_by_ext,)
-import datetime
 from joblib import Parallel, delayed
-import itertools
 
 
 # supporting functions for multiprocessing implementation

@@ -1,16 +1,18 @@
-# -*- coding:utf-8 -*-
+"""# -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Tuesday, September 5th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
+"""
 
 from __future__ import absolute_import
 import itertools
 import copy
+import random
 
-import shapely
 import numpy as np
+import shapely
 import shapely.geometry
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -19,10 +21,8 @@ from pyufunc import (calc_distance_on_unit_sphere,
                      cvt_int_to_alpha,
                      func_running_time,
                      find_closest_point)
-
 from grid2demand.utils_lib.net_utils import Zone, Node
 from grid2demand.utils_lib.pkg_settings import pkg_settings
-import random
 
 
 # supporting functions

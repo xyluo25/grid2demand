@@ -19,10 +19,10 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    input_dir = r"datasets\demand_from_TAZ\poi_02_TAZ_are_polygons"
+    INPUT_DIR = r"datasets\demand_from_TAZ\poi_02_TAZ_are_polygons"
 
     # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir, verbose=False)
+    net = gd.GRID2DEMAND(input_dir=INPUT_DIR, verbose=False)
 
     # Step 1: Load node and poi data from input directory
     net.load_network()

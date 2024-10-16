@@ -6,13 +6,12 @@
 ##############################################################
 '''
 
-from pyufunc import path2linux, generate_unique_filename
 import os
+from pyufunc import path2linux, generate_unique_filename
 import pandas as pd
 
 
-def save_demand(self, overwrite_file: bool = True,
-                is_demand_with_geometry: bool = False) -> None:
+def save_demand(self, overwrite_file: bool = True) -> None:
     """Generate demand.csv file"""
 
     if overwrite_file:

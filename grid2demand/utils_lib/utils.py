@@ -1,16 +1,17 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Wednesday, September 6th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
-
+"""
 
 import copy
 import os
 import datetime
 import itertools
-from dataclasses import dataclass, field, fields, make_dataclass, MISSING, is_dataclass, asdict
+from dataclasses import field, fields, make_dataclass, MISSING, is_dataclass, asdict
 from typing import Any, List, Tuple, Type, Dict
 import shapely
 import numpy as np
@@ -93,8 +94,6 @@ def extend_dataclass(
         ...     base_dataclass=BaseDataclass,
         ...     additional_attributes=[('new_attr', List[int], [1, 2, 3])])
         >>> ExtendedDataclass
-
-
 
     Returns:
         dataclass: A new dataclass that includes fields from base_dataclass and additional_attributes.
@@ -257,6 +256,8 @@ def int2alpha(num: int) -> str:
 
 
 def set_system_path() -> None:
+    """Set the system path to the parent directory of the current file
+    """
     from pathlib import Path
     import sys
     sys.path.append(str(Path(__file__).parent.parent))
@@ -338,6 +339,16 @@ def get_filenames_from_folder_by_type(dir_name: str,
 
 
 def check_required_files_exist(required_files: list, dir_files: list, verbose: bool = True) -> bool:
+    """Check if the required files exist in the directory
+
+    Args:
+        required_files (list): a list of required files
+        dir_files (list): a list of files in the directory
+        verbose (bool, optional): whether to print out processing message. Defaults to True.
+
+    Returns:
+        bool: True if all required files exist in the directory, False otherwise
+    """
     # format the required file name to standard linux path
     required_files = [path2linux(os.path.abspath(filename))
                       for filename in required_files]
@@ -360,6 +371,7 @@ def check_required_files_exist(required_files: list, dir_files: list, verbose: b
 
 def gen_unique_filename(path_filename: str, ) -> str:
     """if the file name exist in path,then create new file name with _1, _1_1, ..."""
+
     filename_abspath = path2linux(os.path.abspath(path_filename))
 
     file_suffix = filename_abspath.split(".")[-1]
@@ -371,7 +383,7 @@ def gen_unique_filename(path_filename: str, ) -> str:
     return filename_abspath
 
 
-def split_dict_by_chunk(dictionary: dict, chunk_size: int, pair_val: list = []) -> list:
+def split_dict_by_chunk(dictionary: dict, chunk_size: int, pair_val: list = []) -> Any:
     """Split dictionary into chunks
 
     Args:
@@ -385,6 +397,7 @@ def split_dict_by_chunk(dictionary: dict, chunk_size: int, pair_val: list = []) 
     Yields:
         Iterator[list]: a generator of the list including a chunk value and the pair value: [chunk_dict, pair_val]
     """
+
     iterator = iter(dictionary.items())
     for _ in range(0, len(dictionary), chunk_size):
         chunk = dict(itertools.islice(iterator, chunk_size))

@@ -1,9 +1,11 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Monday, September 11th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
+"""
 
 from __future__ import absolute_import
 from pathlib import Path
@@ -19,10 +21,10 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    input_dir = r"datasets\demand_from_grid_use_zone_id_in_node\ASU\auto"
+    INPUT_DIR = r"datasets\demand_from_grid_use_zone_id_in_node\ASU\auto"
 
     # Initialize a GRID2DEMAND object, and specify the mode_type as "auto" in default
-    net = gd.GRID2DEMAND(input_dir, use_zone_id=True, mode_type="auto")
+    net = gd.GRID2DEMAND(INPUT_DIR, use_zone_id=True, mode_type="auto")
 
     # Step 1: Load node and poi data from input directory
     net.load_network()
