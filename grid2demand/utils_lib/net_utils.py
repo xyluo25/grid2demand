@@ -1,12 +1,13 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Monday, September 4th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
+"""
 
-
-from dataclasses import dataclass, field, asdict, fields
+from dataclasses import dataclass, field, asdict
 
 
 @dataclass
@@ -19,27 +20,24 @@ class Node:
         y_coord: The y coordinate of the node.
         production: The production of the node.
         attraction: The attraction of the node.
-        is_boundary: The boundary flag of the node. = 1 (current node is boundary node)
         zone_id: The zone ID. default == -1, only three conditions to become an activity node
                 1) POI node, 2) is_boundary node(freeway),  3) residential in activity_type
-        poi_id: The POI ID of the node. default = -1; to be assigned to a POI ID after reading poi.csv
-        activity_type: The activity type of the node. provided from osm2gmns such as motoway, residential, ...
         geometry: The geometry of the node. based on wkt format.
         _zone_id: The zone ID. default == -1,
                 this will be assigned if field zone_id exists in the node.csv and is not empty
     """
-    id: int = 0
+    id: str = "0"
     x_coord: float = -1
     y_coord: float = -1
     production: float = 0
     attraction: float = 0
     # is_boundary: int = 0
     # ctrl_type: int = -1
-    zone_id: int | None = None
+    zone_id: str = ''
     # poi_id: int = -1
     # activity_type: str = ''
     geometry: str = ''
-    _zone_id: int = -1
+    _zone_id: str = "-1"
 
     def __getitem__(self, key):
         if hasattr(self, key):
@@ -55,10 +53,6 @@ class Node:
 
     def as_dict(self):
         return asdict(self)
-
-    # @property
-    # def as_dict(self):
-    #     return asdict(self)
 
 
 @dataclass
@@ -76,17 +70,17 @@ class POI:
         zone_id : The zone ID. mapping from zone
     """
 
-    id: int = 0
+    id: str = "0"
     x_coord: float = 0
     y_coord: float = 0
     count: int = 1
     building: str = ""
     amenity: str = ""
     centroid: str = ""
-    area: str = ""
+    area: float = 0.0
     trip_rate: dict = field(default_factory=dict)
+    zone_id: str | None = None
     geometry: str = ''
-    zone_id: int = -1
 
     def __getitem__(self, key):
         if hasattr(self, key):
@@ -102,11 +96,6 @@ class POI:
 
     def as_dict(self):
         return asdict(self)
-
-    def to_networkx(self) -> tuple:
-        # convert to networkx node
-        # networkx.add_nodes_from([(id, attr_dict), ])
-        return (self.id, self.as_dict())
 
 
 @dataclass
@@ -132,7 +121,7 @@ class Zone:
         geometry        : The geometry of the zone. based on wkt format
     """
 
-    id: int = 0
+    id: str = "0"
     name: str = ''
     x_coord: float = 0
     y_coord: float = 0
@@ -164,10 +153,6 @@ class Zone:
     def as_dict(self):
         return asdict(self)
 
-    # @property
-    # def as_dict(self):
-    #     return asdict(self)
-
 
 @dataclass
 class Agent:
@@ -195,7 +180,7 @@ class Agent:
         departure_time: The departure time of the agent. unit is second. default = 0
     """
 
-    id: int = 0
+    id: str = "0"
     agent_type: str = ''
     o_zone_id: int = 0
     d_zone_id: int = 0

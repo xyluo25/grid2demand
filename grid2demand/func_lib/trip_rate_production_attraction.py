@@ -1,12 +1,13 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Tuesday, September 12th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
-
-import pandas as pd
+"""
 import os
+import pandas as pd
 
 from grid2demand.utils_lib.pkg_settings import pkg_settings
 from pyufunc import path2linux
@@ -72,11 +73,11 @@ def gen_poi_trip_rate(poi_dict: dict,
 
             # update poi_trip_rate in the poi_dict
             poi_dict[poi_id]["trip_rate"] = {"building": building, "unit_of_measure": '1,000 Sq. Ft. GFA',
-                                          "trip_purpose": trip_purpose,
-                                          f"production_rate{trip_purpose}": production_rate,
-                                          f"attraction_rate{trip_purpose}": attraction_rate,
-                                          "production_notes": production_notes,
-                                          "attraction_notes": attraction_notes}
+                                             "trip_purpose": trip_purpose,
+                                             f"production_rate{trip_purpose}": production_rate,
+                                             f"attraction_rate{trip_purpose}": attraction_rate,
+                                             "production_notes": production_notes,
+                                             "attraction_notes": attraction_notes}
         print("  : Successfully generated poi trip rate with default setting.")
         return poi_dict
 
@@ -90,7 +91,7 @@ def gen_poi_trip_rate(poi_dict: dict,
     for poi_id in poi_dict:
         building = poi_dict[poi_id]["building"]
         if building in df_trip_rate_dict:
-            poi_dict[poi_id].trip_rate = df_trip_rate_dict[building].to_dict()
+            poi_dict[poi_id]["trip_rate"] = df_trip_rate_dict[building].to_dict()
 
     if verbose:
         print(f"  : Successfully generated poi trip rate from {trip_rate_file}.")
@@ -127,7 +128,6 @@ def gen_node_prod_attr(node_dict: dict,
         >>> node_prod_attr[1]
         Node(node_id=1, poi_id=0, x=0.0, y=0.0, activity_type='residential', production=10.0, attraction=10.0)
     """
-
     for node in node_dict.values():
         if node["activity_type"] == "residential":
             node["production"] = residential_production
@@ -141,11 +141,11 @@ def gen_node_prod_attr(node_dict: dict,
                 for key in poi_trip_rate:
                     if "production_rate" in key:
                         node["production"] = poi_trip_rate[key] * \
-                            poi_dict[node["poi_id"]].area / 1000
+                            poi_dict[node["poi_id"]]["area"] / 1000
                     if "attraction_rate" in key:
                         node["attraction"] = poi_trip_rate[key] * \
-                            poi_dict[node["poi_id"]].area / 1000
-        elif node["_zone_id"] != -1:
+                            poi_dict[node["poi_id"]]["area"] / 1000
+        elif node["_zone_id"] != "-1":
             node["production"] = boundary_production
             node["attraction"] = boundary_attraction
         else:

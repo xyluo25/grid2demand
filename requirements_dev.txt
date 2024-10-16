@@ -7,3 +7,4 @@ urllib3
 requests
 tqdm
 beautifulsoup4
+joblib

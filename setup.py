@@ -1,10 +1,11 @@
+"""
 # -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Monday, December 28th 2020
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
-
+"""
 
 import setuptools
 
@@ -22,8 +23,8 @@ except Exception:
 
 setuptools.setup(
     name="grid2demand",  # Replace with your own username
-    version="0.6.4",
-    author="Xiangyong Luo, Dr.Xuesong(Simon) Zhou",
+    version="1.0.0a2",
+    author="Xiangyong Luo, Dr.Xuesong (Simon) Zhou",
     author_email="luoxiangyong01@gmail.com, xzhou74@asu.edu",
     description="A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model",
     long_description=long_description,

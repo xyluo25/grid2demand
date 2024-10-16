@@ -39,7 +39,7 @@ If you meet installation issues, please refer to the [user guide](https://github
 
 #### **Generate Demand with node.csv and poi.csv**
 
-1. Create zone from node.csv (the boundary of nodes), this will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
+1. Create zone from node.csv, this will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
 2. Generate demands for between zones (utilize nodes and pois)
 
 ```python
@@ -52,20 +52,30 @@ if __name__ == "__main__":
     input_dir = "your-data-folder"
 
     # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir)
+    net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True, mode_type="auto")
 
     # load network: node and poi
     net.load_network()
 
-    # Generate zone dictionary from node dictionary by specifying number of x blocks and y blocks
-    net.net2zone(num_x_blocks=10, num_y_blocks=10)
-    # net.net2zone(cell_width=10, cell_height=10, unit="km")
+    # Generate zone.csv from node dictionary by specifying number of x blocks and y blocks
+    net.net2grid(num_x_blocks=10, num_y_blocks=10)
+    # net.net2grid(cell_width=10, cell_height=10, unit="km")
+
+    # Generate zone dictionary from zone.csv
+    net.taz2zone()
+
+    # Map zones with nodes and poi, viseversa
+    net.map_mapping_between_zone_and_node_poi()
+
+    # Calculate zone-to-zone distance matrix
+    net.calc_zond_od_distance_matrix(pct=1)
 
     # Calculate demand by running gravity model
     net.run_gravity_model()
 
-    # Save demand, zone, updated node, updated poi to csv
-    net.save_results_to_csv()
+    # Save demand, zone, updated node, updated poi, agent to csv
+    net.save_results_to_csv(agent=True, overwrite_file=False)
+
 ```
 
 ### **Call for Contributions**
@@ -201,17 +211,16 @@ When partitioning grid cells and calculating accessibility, World Geodetic Syste
 
 **Description of Data Files**
 
-
-| Step | Process                            | Input File or Parameter                                                             | Output File                                                                                                    | Method                                                                  |
-| ------ | ------------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 0    | Network files preparation          | map file from OpenStreetMap                                                         | *node.csv, link.csv, poi.csv*                                                                                  | Osm2gmns tool                                                           |
-| 1    | Input files reading                | *node.csv, poi.csv*                                                                 |                                                                                                                |                                                                         |
-| 2    | Zone generation and grid partition | Number of blocks or grid scales in defined units of the area of interest (optional) | *zone.csv, poi.csv* (update with zone id)                                                                      | Alphanumeric grid                                                       |
-| 3    | Trip generation                    | *poi_trip_rate.csv* (optional), trip purpose                                        | *poi_trip_rate.csv* (output/update with utilization notes), *node.csv* (update with zone id and demand values) | Trip rate method                                                        |
-| 4    | OD distance matrix                 | zone.csv                                                                            | OD matrix                                                                                                      | Distance between zone centroids                                         |
-| 5    | Trip distribution                  | Trip purpose, friction factor coefficients                                          | *demand.csv, zone,csv* (update with total production and attraction in each zone)                              | Gravity model                                                           |
-| 6    | Agent generation                   | *demand.csv*                                                                        | *agent.csv*                                                                                                    | Random sampling of node-to-node agents according to zone-to-zone demand |
-| 7    | Visualization                      |                                                                                     | QGIS or NEXTA                                                                                                  |                                                                         |
+| Step | Process                            | Input File or Parameter                                                             | Output File                                                                                                        | Method                                                                  |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| 0    | Network files preparation          | map file from OpenStreetMap                                                         | *node.csv, link.csv, poi.csv*                                                                                    | Osm2gmns tool                                                           |
+| 1    | Input files reading                | *node.csv, poi.csv*                                                               |                                                                                                                    |                                                                         |
+| 2    | Zone generation and grid partition | Number of blocks or grid scales in defined units of the area of interest (optional) | *zone.csv, poi.csv* (update with zone id)                                                                        | Alphanumeric grid                                                       |
+| 3    | Trip generation                    | *poi_trip_rate.csv* (optional), trip purpose                                      | *poi_trip_rate.csv* (output/update with utilization notes), *node.csv* (update with zone id and demand values) | Trip rate method                                                        |
+| 4    | OD distance matrix                 | zone.csv                                                                            | OD matrix                                                                                                          | Distance between zone centroids                                         |
+| 5    | Trip distribution                  | Trip purpose, friction factor coefficients                                          | *demand.csv, zone,csv* (update with total production and attraction in each zone)                                | Gravity model                                                           |
+| 6    | Agent generation                   | *demand.csv*                                                                      | *agent.csv*                                                                                                      | Random sampling of node-to-node agents according to zone-to-zone demand |
+| 7    | Visualization                      |                                                                                     | QGIS or NEXTA                                                                                                      |                                                                         |
 
 ### **Flowchart of grid2demand**
 
@@ -310,7 +319,7 @@ og.connectPOIWithNet(net)
 og.outputNetToCSV(net, output_folder)
 ```
 
-Your will see node.csv, poi.csv and link.csv in your output_folder<img src="docs/media/bc783b917bac32c27b66e4649a472088.png" style="zoom:80%;" />
+Your will see node.csv, poi.csv and link.csv in your output_folder`<img src="docs/media/bc783b917bac32c27b66e4649a472088.png" style="zoom:80%;" />`
 
 <img src="docs/media/bff56bb4b68eef97dfb8ee4a337500bb.png" alt=" " style="zoom:80%;" />
 
@@ -346,16 +355,16 @@ Users can customize the cellâ€™s width and height in prefered units by setting â
 net.load_network()
 
 # create zone
-net.net2zone(num_x_blocks=10,num_y_blocks=10)
+net.net2grid(num_x_blocks=10,num_y_blocks=10)
 
 # or
-# net.net2zone(net.node_dict, num_x_blocks=10, num_y_blocks=10)
+# net.net2grid(net.node_dict, num_x_blocks=10, num_y_blocks=10)
 
 # or generate zone based on grid size with 10 km width and 10 km height for each zone
-# net.net2zone(cell_width=10, cell_height=10, unit='km')
+# net.net2grid(cell_width=10, cell_height=10, unit='km')
 
 # Synchronize geometry info between zone, node and poi
-net.sync_geometry_between_zone_and_node_poi()
+net.map_mapping_between_zone_and_node_poi()
 
 ```
 
@@ -420,6 +429,7 @@ default values of HBW, HBO and NHB are described above.
 ```python
 # Run gravity model to generate agent-based demand
 net.run_gravity_model()
+
 ```
 
 ![](docs/media/54f05724a65916d625ef201196a9c0cb.png)
@@ -445,11 +455,13 @@ below. The output files will be saved in the current folder as the working
 dictionary.
 
 ```python
+
 # You can also view and edit the package setting by using gd.pkg_settings
 print(net.pkg_settings)
 
 # Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
-net.save_results_to_csv()
+net.save_results_to_csv(agent=True)
+
 ```
 
 ![](docs/media/4c2865c527a29c303ef29e237a91139a.png)

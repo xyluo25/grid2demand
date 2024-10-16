@@ -29,7 +29,7 @@ If you meet installation issues, please reach out to our [developers](mailto:luo
 [!IMPORTANT]
 node.csv and poi.csv should follow the [GMNS](https://github.com/zephyr-data-specs/GMNS) standard and you can generate node.csv and poi.csv using [osm2gmns](https://osm2gmns.readthedocs.io/en/latest/quick-start.html).
 
-### Generate Demand with node.csv and poi.csv
+### Generate Demand with node.csv and poi.csv (zone_id as activity nodes)
 
 1. Create zone from node.csv (the boundary of nodes), this will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
 2. Generate demands for between zones (utilize nodes and pois)
@@ -44,50 +44,32 @@ if __name__ == "__main__":
     input_dir = "your-data-folder"
 
     # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir)
+    net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True, mode_type="auto")
 
     # load network: node and poi
     net.load_network()
 
-    # Generate zone dictionary from node dictionary by specifying number of x blocks and y blocks
-    net.net2zone(num_x_blocks=10, num_y_blocks=10)
-    # net.net2zone(cell_width=10, cell_height=10, unit="km")
+    # Generate zone.csv from node dictionary by specifying number of x blocks and y blocks
+    net.net2grid(num_x_blocks=10, num_y_blocks=10)
+    # net.net2grid(cell_width=10, cell_height=10, unit="km")
 
-    # Calculate demand by running gravity model
-    net.run_gravity_model()
-
-    # Save demand, zone, updated node, updated poi to csv
-    net.save_results_to_csv()
-```
-
-# Generate Demand with node.csv, poi.csv and zone.csv (zone_id, geometry or x_coord, y_coord fields in zone.csv)
-
-```python
-from __future__ import absolute_import
-import grid2demand as gd
-
-if __name__ == "__main__":
-
-    # Specify input directory
-    input_dir = "your-data-folder"
-
-    # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir)
-
-    # load network: node and poi
-    net.load_network()
-
-    # Generate zone
+    # Generate zone dictionary from zone.csv
     net.taz2zone()
 
+    # Map zones with nodes and poi, viseversa
+    net.map_mapping_between_zone_and_node_poi()
+
+    # Calculate zone-to-zone distance matrix
+    net.calc_zond_od_distance_matrix(pct=1)
+
     # Calculate demand by running gravity model
     net.run_gravity_model()
 
     # Save demand, zone, updated node, updated poi to csv
-    net.save_results_to_csv(overwrite_file=True)
+    net.save_results_to_csv(agent=True, overwrite_file=False)
 ```
 
-# # Generate Demand with node.csv and poi.csv (zone_id exist in node.csv)
+# Generate Demand with node.csv, poi.csv and zone.csv (from TAZ)
 
 ```python
 from __future__ import absolute_import
@@ -97,23 +79,27 @@ if __name__ == "__main__":
 
     # Specify input directory
     input_dir = "your-data-folder"
-    # make sure you have zone_id field in node.csv
 
     # Initialize a GRID2DEMAND object
-    net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True)
+    net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True, mode_type="auto")
 
     # load network: node and poi
     net.load_network()
 
-    # Generate zone dictionary from node dictionary by specifying number of x blocks and y blocks
-    net.net2zone(num_x_blocks=10, num_y_blocks=10)
-    # net.taz2zone()
+    # Generate zone dictionary from zone.csv
+    net.taz2zone()
+
+    # Map zones with nodes and poi, viseversa
+    net.map_mapping_between_zone_and_node_poi()
+
+    # Calculate zone-to-zone distance matrix
+    net.calc_zond_od_distance_matrix(pct=1)
 
     # Calculate demand by running gravity model
     net.run_gravity_model()
 
     # Save demand, zone, updated node, updated poi to csv
-    net.save_results_to_csv(overwrite_file=True)
+    net.save_results_to_csv(agent=True, overwrite_file=False)
 ```
 
 ## Call for Contributions

@@ -1,9 +1,11 @@
-# -*- coding:utf-8 -*-
+"""# -*- coding:utf-8 -*-
 ##############################################################
 # Created Date: Wednesday, September 6th 2023
 # Contact Info: luoxiangyong01@gmail.com
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
+"""
+
 import os
 
 pkg_settings = {
@@ -24,8 +26,7 @@ pkg_settings = {
     "zone_centroid_fields": ["zone_id", "x_coord", "y_coord"],
 
     # if input data is too large, you can split the input data into chunks and process them separately
-    "data_chunk_size": 1000,
-    "node_export_activity": True,  # export zone id with node activity type in residential and boundary nodes
+    "data_chunk_size": 5000,
 
     # run the program in parallel mode, if cpu_cores > 1
     "set_cpu_cores": os.cpu_count(),
@@ -68,5 +69,3 @@ pkg_settings = {
                               'yes'               : {1: 1.15}
                               }
 }
-
-# save files ids to ingeter
