@@ -666,7 +666,7 @@ class GRID2DEMAND:
         print("  : Successfully generated OD demands.")
         return None
 
-    def gen_agent_based_demand(self) -> None:
+    def gen_agent_based_demand(self, time_periods: str = "0700-0800") -> None:
         """generate agent-based demand
 
         Args:
@@ -680,7 +680,9 @@ class GRID2DEMAND:
             node_dict = self.node_dict
 
         self.df_agent = gen_agent_based_demand(node_dict, self.zone_dict,
-                                               df_demand=self.df_demand, verbose=self.verbose)
+                                               df_demand=self.df_demand,
+                                               time_periods=time_periods,
+                                               verbose=self.verbose)
         return None
 
     def save_results_to_csv(self, output_dir: str = "",
@@ -690,9 +692,9 @@ class GRID2DEMAND:
                             node: bool = True,  # save updated node
                             poi: bool = True,  # save updated poi
                             agent: bool = False,  # save agent-based demand
+                            agent_time_period: str = "0700-0800",
                             zone_od_dist_table: bool = False,
                             zone_od_dist_matrix: bool = False,
-                            is_demand_with_geometry: bool = False,
                             overwrite_file: bool = True) -> None:
         """save results to csv files
 
@@ -713,7 +715,7 @@ class GRID2DEMAND:
             self.output_dir = path2linux(output_dir)
 
         if demand:
-            save_demand(self, overwrite_file=overwrite_file, is_demand_with_geometry=is_demand_with_geometry)
+            save_demand(self, overwrite_file=overwrite_file)
 
         if zone:
             save_zone(self, overwrite_file=overwrite_file)
@@ -731,7 +733,10 @@ class GRID2DEMAND:
             save_zone_od_dist_matrix(self, overwrite_file=overwrite_file)
 
         if agent:
-            self.gen_agent_based_demand()
+            if agent_time_period:
+                self.gen_agent_based_demand(time_periods=agent_time_period)
+            else:
+                self.gen_agent_based_demand()
             save_agent(self, overwrite_file=overwrite_file)
 
         return None
