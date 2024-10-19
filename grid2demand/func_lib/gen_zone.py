@@ -400,7 +400,7 @@ def net2grid(node_dict: dict[int, Node],
     zone_lower_row = []
     zone_left_col = []
     zone_right_col = []
-    zone_id_flag = 0
+    zone_id_flag = 1
 
     # convert y from min-max to max-min
     y_block_maxmin_list = y_block_minmax_list[::-1]
@@ -511,7 +511,7 @@ def map_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int 
         delayed(points_map_to_zone)(zone_bboxes[idx],
                                     zone_polygons[idx],
                                     node_coords, node_ids) for idx in tqdm(range(len(zone_bboxes)),
-                                                                           desc="  :Node to Zone"))
+                                                                           desc="  : Node to Zone"))
 
     # Collect results back into zone_dict
     for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
@@ -567,7 +567,7 @@ def map_zone_centroid_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int 
     results = Parallel(n_jobs=cpu_cores)(
         delayed(process_node_batch)(
             node_coords[chunk], node_ids[chunk], zone_centroids, zone_ids)
-        for chunk in tqdm(node_chunks, desc="  :Node to closest Zone")
+        for chunk in tqdm(node_chunks, desc="  : Node to closest Zone")
     )
 
     # Create a mapping from node_ids to their index positions
@@ -636,7 +636,7 @@ def map_zone_geometry_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 
         delayed(points_map_to_zone)(zone_bboxes[idx],
                                     zone_polygons[idx],
                                     poi_coords, poi_ids) for idx in tqdm(range(len(zone_bboxes)),
-                                                                         desc="  :POI to Zone"))
+                                                                         desc="  : POI to Zone"))
 
     # Collect results back into zone_dict
     for idx, (zone_id, zone_info) in enumerate(zone_cp.items()):
@@ -691,7 +691,7 @@ def map_zone_centroid_and_poi(zone_dict: dict, poi_dict: dict, cpu_cores: int = 
     results = Parallel(n_jobs=cpu_cores)(
         delayed(process_node_batch)(
             poi_coords[chunk], poi_ids[chunk], zone_centroids, zone_ids)
-        for chunk in tqdm(poi_chunks, desc="  :POI to closest Zone")
+        for chunk in tqdm(poi_chunks, desc="  : POI to closest Zone")
     )
 
     # Create a mapping from node_ids to their index positions
@@ -754,7 +754,7 @@ def calc_zone_od_matrix(zone_dict: dict,
     if not selected_zone_id:
         num_keys_to_select = int(total_zones * pct)
         selected_zone_ids = random.sample(list(zone_dict.keys()), num_keys_to_select)
-        print(f"  : Randomly selected {num_keys_to_select} from {pct * 100} % of {total_zones} zones")
+        print(f"  : Selected {num_keys_to_select} from {pct * 100} % of {total_zones} zones")
     else:
         selected_zone_ids = [str(id) for id in set(selected_zone_id)]
 
@@ -778,12 +778,12 @@ def calc_zone_od_matrix(zone_dict: dict,
         # Using itertools.product if origin/destination are specified
         combinations = Parallel(n_jobs=cpu_cores)(
             delayed(generate_combinations_chunk)(chunk1, zone_ids, "product")
-            for chunk1 in tqdm(zone_chunks, desc="  :Generating OD combinations (Product)"))
+            for chunk1 in tqdm(zone_chunks, desc="  : Generating OD combinations (Product)"))
     else:
         # Using itertools.combinations if no specific origin/destination
         combinations = Parallel(n_jobs=cpu_cores)(
             delayed(generate_combinations_chunk)(chunk1, None, "combinations")
-            for chunk1 in tqdm(zone_chunks, desc="  :Generating OD combinations (Combinations)"))
+            for chunk1 in tqdm(zone_chunks, desc="  : Generating OD combinations (Combinations)"))
 
     # Flatten the list of combinations
     combinations = [item for sublist in combinations for item in sublist]
@@ -812,7 +812,7 @@ def calc_zone_od_matrix(zone_dict: dict,
     # Extract coordinates in parallel using chunking
     extracted_data = Parallel(n_jobs=cpu_cores)(
         delayed(extract_coordinates_chunk)(chunk, zone_ids, zone_coords)
-        for chunk in tqdm(combination_chunks, desc="  :Extract OD Coordinates"))
+        for chunk in tqdm(combination_chunks, desc="  : Extract OD Coordinates"))
 
     # Flatten extracted data
     extracted_data = [item for sublist in extracted_data for item in sublist]
@@ -834,7 +834,7 @@ def calc_zone_od_matrix(zone_dict: dict,
     # Process batches in parallel
     distances = Parallel(n_jobs=cpu_cores)(
         delayed(process_batch)(batch[0], batch[1], batch[2], batch[3])
-        for batch in tqdm(batches, desc="  :Calculating Distances"))
+        for batch in tqdm(batches, desc="  : Calculating Distances"))
 
     # Concatenate results from all batches
     distances = np.concatenate(distances)

@@ -94,7 +94,7 @@ def save_node(self, overwrite_file: bool = True) -> None:
         path_output = generate_unique_filename(path2linux(os.path.join(self.output_dir, "node.csv")))
 
     # if activity type is used, merge node_dict and node_dict_activity_nodes
-    if self.node_dict_activity_type:
+    if hasattr(self, "node_dict_activity_nodes"):
         node_dict = {**self.node_dict, **self.node_dict_activity_nodes}
     else:
         node_dict = self.node_dict

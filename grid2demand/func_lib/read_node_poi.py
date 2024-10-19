@@ -344,7 +344,7 @@ def read_node(node_file: str = "", cpu_cores: int = 1, verbose: bool = False) ->
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_node_from_dataframe)(chunk)
-        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="  :Read nodes"))
+        for chunk in tqdm(df_node_chunk, total=total_chunks, desc="  : Read nodes"))
 
     # Combine results using itertools.chain for efficiency
     node_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
@@ -414,7 +414,7 @@ def read_poi(poi_file: str = "", cpu_cores: int = 1, verbose: bool = False) -> d
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_poi_from_dataframe)(chunk)
-        for chunk in tqdm(df_poi_chunk, total=total_chunks, desc="  :Read poi"))
+        for chunk in tqdm(df_poi_chunk, total=total_chunks, desc="  : Read poi"))
 
     poi_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
@@ -483,7 +483,7 @@ def read_zone_by_geometry(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_zone_from_dataframe_by_geometry)(chunk)
-        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="  :Read zone geometry"))
+        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="  : Read zone geometry"))
 
     zone_dict_final = dict(itertools.chain.from_iterable(result.items() for result in results))
 
@@ -552,7 +552,7 @@ def read_zone_by_centroid(zone_file: str = "", cpu_cores: int = 1, verbose: bool
     # Parallel processing using joblib with tqdm for progress tracking
     results = Parallel(n_jobs=cpu_cores)(
         delayed(_create_zone_from_dataframe_by_centroid)(chunk)
-        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="  :Read zone centroid")
+        for chunk in tqdm(df_zone_chunk, total=total_chunks, desc="  : Read zone centroid")
     )
     zone_dict_final = dict(itertools.chain.from_iterable(
         result.items() for result in results))

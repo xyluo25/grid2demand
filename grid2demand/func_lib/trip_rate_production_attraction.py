@@ -135,16 +135,17 @@ def gen_node_prod_attr(node_dict: dict,
         elif node["activity_type"] == "boundary":
             node["production"] = boundary_production
             node["attraction"] = boundary_attraction
-        elif node["activity_type"] == "poi":
-            if node["poi_id"] in poi_dict:
-                poi_trip_rate = poi_dict[node["poi_id"]]["trip_rate"]
-                for key in poi_trip_rate:
-                    if "production_rate" in key:
-                        node["production"] = poi_trip_rate[key] * \
-                            poi_dict[node["poi_id"]]["area"] / 1000
-                    if "attraction_rate" in key:
-                        node["attraction"] = poi_trip_rate[key] * \
-                            poi_dict[node["poi_id"]]["area"] / 1000
+        # elif node["activity_type"] == "poi":
+        #     print("node: ", node)
+        #     if node["poi_id"] in poi_dict:
+        #         poi_trip_rate = poi_dict[node["poi_id"]]["trip_rate"]
+        #         for key in poi_trip_rate:
+        #             if "production_rate" in key:
+        #                 node["production"] = poi_trip_rate[key] * \
+        #                     poi_dict[node["poi_id"]]["area"] / 1000
+        #             if "attraction_rate" in key:
+        #                 node["attraction"] = poi_trip_rate[key] * \
+        #                     poi_dict[node["poi_id"]]["area"] / 1000
         elif node["_zone_id"] != "-1":
             node["production"] = boundary_production
             node["attraction"] = boundary_attraction

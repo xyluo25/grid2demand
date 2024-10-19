@@ -289,9 +289,14 @@ class GRID2DEMAND:
         if unit not in ["km", "meter", "mile"]:
             raise ValueError("Error: unit must be km, meter or mile.")
 
-        print("  : Crating grid...")
+        print("  : Creating grid...")
         # generate zone based on zone_id in node.csv
-        node_dict = self.node_dict
+        if self.node_dict:
+            node_dict = self.node_dict
+        elif hasattr(self, "node_dict_activity_nodes"):
+            node_dict = self.node_dict_activity_nodes
+        else:
+            raise Exception("Error: node_dict is not valid. Please check your node.csv first.")
 
         zone_dict_with_gate = net2grid(node_dict,
                                        num_x_blocks,
@@ -388,7 +393,7 @@ class GRID2DEMAND:
 
                 # Process each chunk in parallel with progress tracking
                 processed_chunks = Parallel(n_jobs=-1)(
-                    delayed(process_chunk)(chunk) for chunk in tqdm(chunks, desc="  :Update zone geometry")
+                    delayed(process_chunk)(chunk) for chunk in tqdm(chunks, desc="  : Update zone geometry")
                 )
 
                 # Concatenate all the processed chunks back into a single DataFrame
@@ -460,7 +465,7 @@ class GRID2DEMAND:
 
         # synchronize zone with node
         if hasattr(self, "node_dict"):
-            print("  : Mapping zone with node...")
+            print("  : Mapping zones with nodes...")
             if hasattr(self, "node_dict_activity_nodes"):
                 _node_dict = self.node_dict_activity_nodes
             else:
@@ -499,7 +504,7 @@ class GRID2DEMAND:
 
         # synchronize zone with poi
         if hasattr(self, "poi_dict"):
-            print("  : Mapping zone with poi...\n")
+            print("  : Mapping zones with pois...")
 
             if self.__config["is_geometry"]:
                 try:
@@ -681,7 +686,7 @@ class GRID2DEMAND:
 
         self.df_agent = gen_agent_based_demand(node_dict, self.zone_dict,
                                                df_demand=self.df_demand,
-                                               time_periods=time_periods,
+                                               time_period=time_periods,
                                                verbose=self.verbose)
         return None
 
