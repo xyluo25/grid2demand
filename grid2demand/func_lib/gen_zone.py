@@ -307,7 +307,9 @@ def add_zone_to_pois(poi_dict: dict, zone_dict: dict) -> dict:
 
 
 @func_running_time
-def net2grid(node_dict: dict[int, Node],
+def net2grid(*,  # enforce the use of keyword arguments
+             net_coords_min_max: list = [],  # [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
+             node_dict: dict[int, Node] = {},
              num_x_blocks: int = 0,
              num_y_blocks: int = 0,
              cell_width: float = 0,
@@ -322,6 +324,8 @@ def net2grid(node_dict: dict[int, Node],
             if num_x_blocks and num_y_blocks are specified, cell_width and cell_height will be ignored.
 
     Args:
+        net_coords_min_max (list): the boundary of the study area. Defaults to [].
+            sample: [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
         node_dict (dict[int, Node]): node_dict {node_id: Node}
         num_x_blocks (int, optional): total number of blocks/grids from x direction. Defaults to 10.
         num_y_blocks (int, optional): total number of blocks/grids from y direction. Defaults to 10.
@@ -345,7 +349,22 @@ def net2grid(node_dict: dict[int, Node],
 
     """
 
-    coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(node_dict)
+    # valid tin net_coords_min_max
+    if not isinstance(net_coords_min_max, list):
+        raise ValueError("Please provide net_coords_min_max as a list")
+
+    if net_coords_min_max:
+        if len(net_coords_min_max) != 4:
+            raise ValueError("Please provide net_coords_min_max as a list with 4 elements"
+                             " [coord_x_min, coord_x_max, coord_y_min, coord_y_max]")
+        if not all(isinstance(coord, (int, float)) for coord in net_coords_min_max):
+            raise ValueError("Please provide net_coords_min_max as a list with 4 numeric elements")
+
+        coord_x_min, coord_x_max, coord_y_min, coord_y_max = net_coords_min_max
+    else:
+        if not node_dict:
+            raise ValueError("Please provide node_dict or net_coords_min_max for the boundary of the study area")
+        coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(node_dict)
 
     if num_x_blocks > 0 and num_y_blocks > 0:
         x_block_width = (coord_x_max - coord_x_min) / num_x_blocks
@@ -396,11 +415,12 @@ def net2grid(node_dict: dict[int, Node],
                                          (x_min, y_min)])
 
     zone_dict = {}
+    zone_id_flag = 1
+
     zone_upper_row = []
     zone_lower_row = []
     zone_left_col = []
     zone_right_col = []
-    zone_id_flag = 1
 
     # convert y from min-max to max-min
     y_block_maxmin_list = y_block_minmax_list[::-1]
@@ -446,36 +466,56 @@ def net2grid(node_dict: dict[int, Node],
             zone_id_flag += 1
 
     # generate outside boundary centroids
-    upper_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
-                                           zone_dict[zone_id]["y_coord"] + y_block_height
-                                           ) for zone_id in zone_upper_row]
-    lower_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
-                                           zone_dict[zone_id]["y_coord"] - y_block_height
-                                           ) for zone_id in zone_lower_row]
-    left_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] - x_block_width,
-                                          zone_dict[zone_id]["y_coord"]
-                                          ) for zone_id in zone_left_col]
-    right_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] + x_block_width,
-                                           zone_dict[zone_id]["y_coord"]
-                                           ) for zone_id in zone_right_col]
-    points_lst = upper_points + lower_points + left_points + right_points
-    for i in range(len(points_lst)):
-        zone_dict[f"{zone_id_flag}"] = Zone(
-            id=str(zone_id_flag),
-            name=f"gate{i}",
-            x_coord=points_lst[i].x,
-            y_coord=points_lst[i].y,
-            centroid=points_lst[i],
-            geometry=points_lst[i]
-        )
-        zone_id_flag += 1
+    # upper_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
+    #                                        zone_dict[zone_id]["y_coord"] + y_block_height
+    #                                        ) for zone_id in zone_upper_row]
+    # lower_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
+    #                                        zone_dict[zone_id]["y_coord"] - y_block_height
+    #                                        ) for zone_id in zone_lower_row]
+    # left_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] - x_block_width,
+    #                                       zone_dict[zone_id]["y_coord"]
+    #                                       ) for zone_id in zone_left_col]
+    # right_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"] + x_block_width,
+    #                                        zone_dict[zone_id]["y_coord"]
+    #                                        ) for zone_id in zone_right_col]
+    # points_lst = upper_points + lower_points + left_points + right_points
+    # for i in range(len(points_lst)):
+    #     zone_dict[f"{zone_id_flag}"] = Zone(
+    #         id=str(zone_id_flag),
+    #         name=f"gate{i}",
+    #         x_coord=points_lst[i].x,
+    #         y_coord=points_lst[i].y,
+    #         centroid=points_lst[i],
+    #         geometry=points_lst[i]
+    #     )
+    #     zone_id_flag += 1
+
+    # if only min-max coordinates are provided, return zone_dict
+    if net_coords_min_max:
+        return zone_dict
+
+    # select zones that overlapping nodes geometry
+    # crate node polygon from node_dict
+    nodes_polygon = shapely.Polygon([(node["x_coord"], node["y_coord"]) for node in node_dict.values()])
+
+    # delete not overlapping zones
+    overlapping_zone_ids = []
+    for zone_id, zone_info in zone_dict.items():
+        if not zone_info["geometry"].intersects(nodes_polygon):
+            continue
+        overlapping_zone_ids.append(zone_id)
+
+    # renumber the zone_id
+    zone_dict_overlapping = {}
+    for idx, zone_id in enumerate(overlapping_zone_ids):
+        zone_val = zone_dict[zone_id]
+        zone_val["id"] = idx + 1
+        zone_dict_overlapping[f"{idx}"] = zone_val
 
     if verbose:
-        print(
-            f"  : Successfully generated zone dictionary: {len(zone_dict) - 4 * len(zone_upper_row)} Zones generated,")
-        print(f"  : plus {4 * len(zone_upper_row)} boundary gates (points)")
-    return zone_dict
+        print(f"  : {len(zone_dict)} zones are created.")
 
+    return zone_dict_overlapping
 
 @func_running_time
 def map_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:

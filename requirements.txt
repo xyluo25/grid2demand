@@ -3,3 +3,4 @@ Shapely
 pyufunc
 tqdm
 joblib
+matplotlib

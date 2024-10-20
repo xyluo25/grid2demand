@@ -26,6 +26,8 @@ from .func_lib.gen_zone import (net2grid,
 from .func_lib.gravity_model import (run_gravity_model,
                                      calc_zone_production_attraction)
 from .func_lib.gen_agent_demand import gen_agent_based_demand
+from .func_lib.plot_net import plot_gd
+
 from .utils_lib.pkg_settings import pkg_settings
 from ._grid2demand import GRID2DEMAND
 
@@ -63,5 +65,6 @@ __all__ = ["read_node", "read_poi", "read_network",
            "calc_zone_od_matrix",
            "run_gravity_model", "calc_zone_production_attraction",
            "gen_agent_based_demand",
+           "plot_gd",
            "pkg_settings",
            "GRID2DEMAND"]

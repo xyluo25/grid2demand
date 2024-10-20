@@ -247,6 +247,7 @@ class GRID2DEMAND:
         return None
 
     def net2grid(self, *,
+                 net_coords_min_max: list = [],
                  num_x_blocks: int = 10,
                  num_y_blocks: int = 10,
                  cell_width: float = 0,
@@ -298,13 +299,15 @@ class GRID2DEMAND:
         else:
             raise Exception("Error: node_dict is not valid. Please check your node.csv first.")
 
-        zone_dict_with_gate = net2grid(node_dict,
-                                       num_x_blocks,
-                                       num_y_blocks,
-                                       cell_width,
-                                       cell_height,
-                                       unit,
-                                       verbose=self.verbose)
+        zone_dict_with_gate = net2grid(
+            net_coords_min_max=net_coords_min_max,
+            node_dict=node_dict,
+            num_x_blocks=num_x_blocks,
+            num_y_blocks=num_y_blocks,
+            cell_width=cell_width,
+            cell_height=cell_height,
+            unit=unit,
+            verbose=self.verbose)
         zone_dict = {
             zone_name: zone for zone_name, zone in zone_dict_with_gate.items() if "gate" not in zone.name}
         self.__config["is_geometry"] = True
