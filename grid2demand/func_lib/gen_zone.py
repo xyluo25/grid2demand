@@ -14,6 +14,7 @@ import random
 import numpy as np
 import shapely
 import shapely.geometry
+import shapely.wkt as wkt
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from pyufunc import (calc_distance_on_unit_sphere,
@@ -309,9 +310,10 @@ def add_zone_to_pois(poi_dict: dict, zone_dict: dict) -> dict:
 @func_running_time
 def net2grid(*,  # enforce the use of keyword arguments
              net_coords_min_max: list = [],  # [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
-             node_dict: dict[int, Node] = {},
-             num_x_blocks: int = 0,
-             num_y_blocks: int = 0,
+             node_dict: dict[str, Node] = {},
+             zone_dict: dict[str, Zone] = {},
+             num_x_blocks: int = 10,
+             num_y_blocks: int = 10,
              cell_width: float = 0,
              cell_height: float = 0,
              unit: str = "km",
@@ -361,10 +363,43 @@ def net2grid(*,  # enforce the use of keyword arguments
             raise ValueError("Please provide net_coords_min_max as a list with 4 numeric elements")
 
         coord_x_min, coord_x_max, coord_y_min, coord_y_max = net_coords_min_max
-    else:
-        if not node_dict:
-            raise ValueError("Please provide node_dict or net_coords_min_max for the boundary of the study area")
+
+    elif node_dict:
         coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(node_dict)
+
+    elif zone_dict:
+        is_geometry = False
+        # check is zone_dict represent using centroids or geometry
+        for zone in zone_dict.values():
+            if zone["geometry"]:
+                is_geometry = True
+                break
+        if is_geometry:
+            # create multipolygon from zone_dict
+            __zone_polygons_list = []
+            for zone in zone_dict.values():
+                if isinstance(zone["geometry"], str):
+                    _geometry = wkt.loads(zone["geometry"])
+                else:
+                    _geometry = zone["geometry"]
+
+                if isinstance(_geometry, shapely.geometry.Polygon):
+                    __zone_polygons_list.append(_geometry)
+                elif isinstance(_geometry, shapely.geometry.MultiPolygon):
+                    __zone_polygons_list.extend([_geometry.geoms])
+                else:
+                    continue
+            zone_polygons = shapely.MultiPolygon(__zone_polygons_list)
+
+            coord_x_min, coord_y_min, coord_x_max, coord_y_max = zone_polygons.bounds
+        else:
+            # zone dict are centroids
+            coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(zone_dict)
+
+    else:
+        raise ValueError("Please provide net_coords_min_max([coord_x_min, coord_x_max, coord_y_min, coord_y_max])"
+                         " or node_dict(dict[str, Node]) or zone_dict(dict[str, Zone])")
+    print("  : Study area boundary: ", coord_x_min, coord_x_max, coord_y_min, coord_y_max)
 
     if num_x_blocks > 0 and num_y_blocks > 0:
         x_block_width = (coord_x_max - coord_x_min) / num_x_blocks
@@ -414,8 +449,8 @@ def net2grid(*,  # enforce the use of keyword arguments
                                          (x_min, y_max),
                                          (x_min, y_min)])
 
-    zone_dict = {}
-    zone_id_flag = 1
+    grid_dict = {}
+    grid_id_flag = 1
 
     zone_upper_row = []
     zone_lower_row = []
@@ -438,8 +473,9 @@ def net2grid(*,  # enforce the use of keyword arguments
 
             cell_polygon = generate_polygon(x_min, x_max, y_min, y_max)
             row_alpha = cvt_int_to_alpha(j)
-            zone_dict[f"{zone_id_flag}"] = Zone(
-                id=str(zone_id_flag),
+
+            grid_dict[f"{grid_id_flag}"] = Zone(
+                id=str(grid_id_flag),
                 name=f"{row_alpha}{i}",
                 x_coord=cell_polygon.centroid.x,
                 y_coord=cell_polygon.centroid.y,
@@ -453,17 +489,17 @@ def net2grid(*,  # enforce the use of keyword arguments
 
             # add boundary zone names to list
             if j == 0:
-                zone_upper_row.append(f"{zone_id_flag}")
+                zone_upper_row.append(f"{grid_id_flag}")
             if j == len(y_block_maxmin_list) - 1:
-                zone_lower_row.append(f"{zone_id_flag}")
+                zone_lower_row.append(f"{grid_id_flag}")
 
             if i == 0:
-                zone_left_col.append(f"{zone_id_flag}")
+                zone_left_col.append(f"{grid_id_flag}")
             if i == len(x_block_minmax_list) - 1:
-                zone_right_col.append(f"{zone_id_flag}")
+                zone_right_col.append(f"{grid_id_flag}")
 
             # update zone id
-            zone_id_flag += 1
+            grid_id_flag += 1
 
     # generate outside boundary centroids
     # upper_points = [shapely.geometry.Point(zone_dict[zone_id]["x_coord"],
@@ -492,30 +528,37 @@ def net2grid(*,  # enforce the use of keyword arguments
 
     # if only min-max coordinates are provided, return zone_dict
     if net_coords_min_max:
-        return zone_dict
+        return grid_dict
 
     # select zones that overlapping nodes geometry
-    # crate node polygon from node_dict
-    nodes_polygon = shapely.Polygon([(node["x_coord"], node["y_coord"]) for node in node_dict.values()])
+    if node_dict:
+        # crate node polygon from node_dict
+        input_polygons = shapely.Polygon([(node["x_coord"], node["y_coord"]) for node in node_dict.values()])
+    elif zone_dict:
+        if is_geometry:
+            input_polygons = zone_polygons
+        else:
+            input_polygons = shapely.Polygon([(zone["x_coord"], zone["y_coord"]) for zone in zone_dict.values()])
 
     # delete not overlapping zones
     overlapping_zone_ids = []
-    for zone_id, zone_info in zone_dict.items():
-        if not zone_info["geometry"].intersects(nodes_polygon):
+    for grid_id, grid_info in grid_dict.items():
+        if not grid_info["geometry"].intersects(input_polygons):
             continue
-        overlapping_zone_ids.append(zone_id)
+        overlapping_zone_ids.append(grid_id)
 
     # renumber the zone_id
-    zone_dict_overlapping = {}
-    for idx, zone_id in enumerate(overlapping_zone_ids):
-        zone_val = zone_dict[zone_id]
-        zone_val["id"] = idx + 1
-        zone_dict_overlapping[f"{idx}"] = zone_val
+    grid_dict_overlapping = {}
+    for idx, grid_id in enumerate(overlapping_zone_ids):
+        grid_val = grid_dict[grid_id]
+        grid_val["id"] = idx + 1
+        grid_dict_overlapping[f"{idx}"] = grid_val
 
     if verbose:
-        print(f"  : {len(zone_dict)} zones are created.")
+        print(f"  : {len(grid_dict)} zones are created.")
 
-    return zone_dict_overlapping
+    return grid_dict_overlapping
+
 
 @func_running_time
 def map_zone_geometry_and_node(zone_dict: dict, node_dict: dict, cpu_cores: int = -1, verbose: bool = False) -> dict:

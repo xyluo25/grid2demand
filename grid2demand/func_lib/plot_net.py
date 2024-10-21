@@ -9,6 +9,7 @@
 
 import matplotlib.pyplot as plt
 import shapely.wkt as wkt
+from shapely.geometry import Polygon, MultiPolygon
 
 
 def plot_gd(net: object, *,
@@ -63,8 +64,18 @@ def plot_gd(net: object, *,
             # check if net have zone data
             if hasattr(net, 'zone_dict'):
                 for zone_val in net.zone_dict.values():
-                    x, y = wkt.loads(zone_val["geometry"]).exterior.xy
-                    ax.fill(x, y, alpha=0.5, fc='gray', ec='white')
+                    if isinstance(zone_val["geometry"], str):
+                        __geometry = wkt.loads(zone_val["geometry"])
+                    else:
+                        __geometry = zone_val["geometry"]
+
+                    if isinstance(__geometry, Polygon):
+                        x, y = __geometry.exterior.xy
+                        ax.fill(x, y, alpha=0.5, fc='gray', ec='white')
+                    elif isinstance(__geometry, MultiPolygon):
+                        for polygon in __geometry.geoms:
+                            x, y = polygon.exterior.xy
+                            ax.fill(x, y, alpha=0.5, fc='gray', ec='white')
                 is_add_data_to_plot = True
                 title_str += " ZONES"
 
