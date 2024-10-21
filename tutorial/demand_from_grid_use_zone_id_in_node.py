@@ -28,17 +28,12 @@ if __name__ == "__main__":
 
     # Step 1: Load node and poi data from input directory
     net.load_network()
-    # visualize node and poi
-    gd.plot_gd(net, node=True)
-    gd.plot_gd(net, poi=True)
 
     # Step 2: create grids by specifying number of x blocks and y blocks
     net.net2grid()
 
     # Step 3: Generate zone dictionary from zone.csv
     net.taz2zone()
-    # visualize the zone
-    gd.plot_gd(net, zone=True, node=True)
 
     # Step 4: Map the zone id in node and poi, vise versa
     net.map_mapping_between_zone_and_node_poi()
