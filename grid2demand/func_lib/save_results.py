@@ -95,17 +95,18 @@ def save_node(self, overwrite_file: bool = True) -> None:
 
     # if activity type is used, merge node_dict and node_dict_activity_nodes
     if hasattr(self, "node_dict_activity_nodes"):
-        node_dict = {**self.node_dict, **self.node_dict_activity_nodes}
-    else:
-        node_dict = self.node_dict
+        node_df = pd.concat([pd.DataFrame(self.node_dict_activity_nodes.values()),
+                             pd.DataFrame(self.node_dict.values())])
 
-    node_df = pd.DataFrame(node_dict.values())
+    else:
+        node_df = pd.DataFrame(self.node_dict.values())
+
     node_df.rename(columns={"id": "node_id"}, inplace=True)
 
-    # fill zone_id with None if node_id is not in node_dict_activity_nodes
-    node_df["zone_id"] = node_df["zone_id"].where(
-        node_df["node_id"].isin(self.node_dict_activity_nodes.keys()),
-        None) if hasattr(self, "node_dict_activity_nodes") else node_df["zone_id"]
+    # # fill zone_id with None if node_id is not in node_dict_activity_nodes
+    # node_df["zone_id"] = node_df["zone_id"].where(
+    #     node_df["node_id"].isin(self.node_dict_activity_nodes.keys()),
+    #     None) if hasattr(self, "node_dict_activity_nodes") else node_df["zone_id"]
 
     node_df.to_csv(path_output, index=False)
     print(f"  : Successfully saved updated node to node.csv to {self.output_dir}")

@@ -292,7 +292,9 @@ class GRID2DEMAND:
 
         print("  : Creating grid...")
         # generate zone based on zone_id in node.csv
-        if self.node_dict:
+        if self.node_dict and hasattr(self, "node_dict_activity_nodes"):
+            node_dict = {**self.node_dict, **self.node_dict_activity_nodes}
+        elif self.node_dict:
             node_dict = self.node_dict
         elif hasattr(self, "node_dict_activity_nodes"):
             node_dict = self.node_dict_activity_nodes
@@ -703,7 +705,7 @@ class GRID2DEMAND:
                             agent_time_period: str = "0700-0800",
                             zone_od_dist_table: bool = False,
                             zone_od_dist_matrix: bool = False,
-                            overwrite_file: bool = True) -> None:
+                            overwrite_file: bool = False) -> None:
         """save results to csv files
 
         Args:

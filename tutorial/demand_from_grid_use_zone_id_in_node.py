@@ -45,4 +45,4 @@ if __name__ == "__main__":
     net.run_gravity_model()
 
     # Step 7: Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
-    net.save_results_to_csv(zone=True, node=True, poi=True, agent=True, overwrite_file=False)
+    net.save_results_to_csv(zone=False, node=True, poi=False, agent=False, overwrite_file=False)
