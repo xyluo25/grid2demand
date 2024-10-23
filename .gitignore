@@ -14,6 +14,7 @@ x64/
 .DS_Store
 **log.txt
 *__pycache__*
+**/*__pycache__*
 **.egg-info/*
 *PKG-INFO*
 *Tutorial_PyPI.md
