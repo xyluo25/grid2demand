@@ -11,8 +11,6 @@ import os
 
 import pandas as pd
 import shapely
-from joblib import Parallel, delayed
-from tqdm import tqdm
 from pyufunc import (path2linux,
                      get_filenames_by_ext,
                      func_time)
@@ -21,15 +19,14 @@ from grid2demand.utils_lib.pkg_settings import pkg_settings
 from grid2demand.utils_lib.utils import check_required_files_exist
 
 from grid2demand.func_lib.read_node_poi import (read_node,
-                                                read_poi,
-                                                read_zone_by_geometry,
-                                                read_zone_by_centroid)
+                                                read_poi)
 from grid2demand.func_lib.gen_zone import (net2grid,
                                            map_zone_geometry_and_node,
                                            map_zone_geometry_and_poi,
                                            map_zone_centroid_and_node,
                                            map_zone_centroid_and_poi,
                                            calc_zone_od_matrix)
+from grid2demand.func_lib.read_zone import taz2zone
 from grid2demand.func_lib.trip_rate_production_attraction import (gen_poi_trip_rate,
                                                                   gen_node_prod_attr)
 from grid2demand.func_lib.gravity_model import (run_gravity_model,
@@ -334,125 +331,21 @@ class GRID2DEMAND:
 
         Raises:
             FileNotFoundError: Error: File {zone_file} does not exist.
-            Exception: Error: Failed to read {zone_file}.
-            Exception: Error: {zone_file} does not contain valid zone fields.
-            Exception: Error: {zone_file} does not contain valid geometry fields.
-            Exception: Error: {zone_file} contains both point and polygon geometry fields.
         """
-
-        if self.verbose:
-            print("  : Note: taz2zone will generate zones from zone.csv (TAZs). \n"
-                  "  : If you want to use grid-based zones (generate zones from node_dict), \n"
-                  "  : please skip this method and use net2zone() instead. \n")
 
         # update zone_file if specified
         if zone_file:
             self.zone_file = path2linux(zone_file)
 
-        # check zone_file, geometry or centroid?
-        if not os.path.exists(self.zone_file):
-            raise FileNotFoundError(f"Error: File {self.zone_file} does not exist.")
+        zone_dict = taz2zone(self.zone_file, verbose=self.verbose)
 
-        # load zone file column names
-        zone_columns = []
-        try:
-            zone_df = pd.read_csv(self.zone_file, nrows=1)  # 1 row, reduce memory and time
-            zone_columns = zone_df.columns
-        except Exception as e:
-            raise Exception(f"Error: Failed to read {self.zone_file}.") from e
-
-        # update geometry or centroid
-        if set(self.pkg_settings.get("zone_geometry_fields")).issubset(set(zone_columns)):
-            # we need to consider whether the geometry field is point or polygon
-
-            # check geometry fields is valid from zone_df
-            if not any(zone_df["geometry"].isnull()):
-
-                # check whether geometry is point,
-                # if it is, then convert to centroid and update zone file
-                zone_df = pd.read_csv(self.zone_file)  # reload zone file
-                include_point = False
-                include_polygon = False
-
-                # Function to process a chunk of the DataFrame
-                def process_chunk(chunk):
-                    for index, row in chunk.iterrows():
-                        try:
-                            geo = shapely.from_wkt(row["geometry"])
-                            if isinstance(geo, shapely.Point):
-                                row["x_coord"] = geo.x
-                                row["y_coord"] = geo.y
-                            elif isinstance(geo, (shapely.Polygon, shapely.MultiPolygon)):
-                                row["x_coord"] = geo.centroid.x
-                                row["y_coord"] = geo.centroid.y
-                            else:
-                                print(f"  : Error: {row['geometry']} is not valid geometry.")
-                        except Exception as e:
-                            print(f"  : Error: {row['geometry']} is not valid geometry.")
-                            print(f"  : Error: {e}")
-                    return chunk
-
-                chunk_size = pkg_settings["data_chunk_size"]
-                chunks = [zone_df.iloc[i:i + chunk_size]
-                          for i in range(0, len(zone_df), chunk_size)]
-
-                # Process each chunk in parallel with progress tracking
-                processed_chunks = Parallel(n_jobs=-1)(
-                    delayed(process_chunk)(chunk) for chunk in tqdm(chunks, desc="  : Update zone geometry")
-                )
-
-                # Concatenate all the processed chunks back into a single DataFrame
-                zone_df = pd.concat(processed_chunks, ignore_index=True)
-
-                # check if is point or polygon
-                single_geo = shapely.from_wkt(zone_df.loc[0, "geometry"])
-                if isinstance(single_geo, shapely.Point):
-                    include_point = True
-                elif isinstance(single_geo, (shapely.Polygon, shapely.MultiPolygon)):
-                    include_polygon = True
-                else:
-                    raise Exception(f"Error: {self.zone_file} does not contain valid geometry fields.")
-
-                if include_point:
-                    if include_polygon:
-                        raise Exception(f"Error: {self.zone_file} contains both point and polygon geometry fields.")
-
-                    # save zone_df to zone.csv
-                    zone_df.to_csv(self.zone_file, index=False)
-                    self.__config["is_centroid"] = True
-
-                if include_polygon:
-                    self.__config["is_geometry"] = True
-
-        # use elif to prioritize geometry
-        elif set(self.pkg_settings.get("zone_centroid_fields")).issubset(set(zone_columns)):
+        # update zone if geometry or centroid based
+        zone_ids = list(zone_dict.keys())
+        if zone_dict[zone_ids[0]]["geometry"]:
+            self.__config["is_geometry"] = True
+        else:
             self.__config["is_centroid"] = True
 
-        if not self.__config["is_geometry"] and not self.__config["is_centroid"]:
-            raise Exception(f"Error: {self.zone_file} does not contain valid zone fields.")
-
-        if self.verbose:
-            if self.__config["is_geometry"]:
-                print("  : read zone by geometry.")
-            else:
-                print("  : read zone by centroid.")
-
-            print("  : Generating zone dictionary...")
-
-        # generate zone by centroid: zone_id, x_coord, y_coord
-        # generate zone by geometry: zone_id, geometry
-        if self.__config["is_geometry"]:
-            zone_dict = read_zone_by_geometry(self.zone_file,
-                                              self.pkg_settings.get("set_cpu_cores"),
-                                              verbose=self.verbose)
-
-        elif self.__config["is_centroid"]:
-            zone_dict = read_zone_by_centroid(self.zone_file,
-                                              self.pkg_settings.get("set_cpu_cores"),
-                                              verbose=self.verbose)
-        else:
-            print(f"Error: {self.zone_file} does not contain valid zone fields.")
-            return {}
         self.zone_dict = zone_dict
         return None
 

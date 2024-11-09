@@ -19,7 +19,7 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    INPUT_DIR = r"datasets\demand_from_TAZ\poi_02_TAZ_are_polygons"
+    INPUT_DIR = r"datasets\demand_from_TAZ\Avondale_AZ_TAZ_are_centroids"
 
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=INPUT_DIR, verbose=False)

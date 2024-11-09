@@ -12,20 +12,11 @@ import sys
 
 from .func_lib.read_node_poi import (read_node,
                                      read_poi,
-                                     read_network,
-                                     read_zone_by_geometry,
-                                     read_zone_by_centroid)
-from .func_lib.trip_rate_production_attraction import (gen_poi_trip_rate,
-                                                       gen_node_prod_attr)
-from .func_lib.gen_zone import (net2grid,
-                                map_zone_geometry_and_node,
-                                map_zone_geometry_and_poi,
-                                map_zone_centroid_and_node,
-                                map_zone_centroid_and_poi,
-                                calc_zone_od_matrix)
-from .func_lib.gravity_model import (run_gravity_model,
-                                     calc_zone_production_attraction)
-from .func_lib.gen_agent_demand import gen_agent_based_demand
+                                     read_network)
+
+from .func_lib.gen_zone import net2grid
+from .func_lib.read_zone import taz2zone
+
 from .func_lib.plot_net import plot_gd
 
 from .utils_lib.pkg_settings import pkg_settings
@@ -57,14 +48,8 @@ check_python_version()
 # print('grid2demand, version 0.4.8, supports Python 3.10 or higher')
 
 __all__ = ["read_node", "read_poi", "read_network",
-           "read_zone_by_geometry", "read_zone_by_centroid",
-           "gen_poi_trip_rate", "gen_node_prod_attr",
            "net2grid",
-           "map_zone_geometry_and_node", "map_zone_geometry_and_poi",
-           "map_zone_centroid_and_node", "map_zone_centroid_and_poi",
-           "calc_zone_od_matrix",
-           "run_gravity_model", "calc_zone_production_attraction",
-           "gen_agent_based_demand",
+           "taz2zone",
            "plot_gd",
            "pkg_settings",
            "GRID2DEMAND"]
