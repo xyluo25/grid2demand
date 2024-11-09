@@ -102,8 +102,10 @@ def taz2zone(zone_file: str, verbose: bool = False) -> dict:
                 if include_polygon:
                     raise Exception(f"Error: {zone_file} contains both point and polygon geometry fields.",
                                     "grid2demand allow only one type of geometry.")
-                # save zone_df to zone.csv
+
+                # save zone_df to zone.csv: updated geometry fields
                 zone_df.to_csv(zone_file, index=False)
+                print("  : Updated zone file with point geometry fields.")
 
     elif set(pkg_settings.get("zone_centroid_fields")).issubset(zone_columns):
         include_point = True
@@ -129,8 +131,5 @@ def taz2zone(zone_file: str, verbose: bool = False) -> dict:
         zone_dict = read_zone_by_centroid(zone_file,
                                           pkg_settings.get("set_cpu_cores"),
                                           verbose=verbose)
-    else:
-        zone_dict = {}
-        print("  : Error: Invalid geometry fields in zone file.")
 
     return zone_dict
