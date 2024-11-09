@@ -70,35 +70,39 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
     for i in range(len(df_demand)):
         o_zone_id = df_demand.loc[i, 'o_zone_id']
         d_zone_id = df_demand.loc[i, 'd_zone_id']
-        # o_zone_name = df_demand.loc[i, 'o_zone_name']
-        # d_zone_name = df_demand.loc[i, 'd_zone_name']
-        o_node_id = choice(zone_dict[o_zone_id]["node_id_list"] + [""])
-        d_node_id = choice(zone_dict[d_zone_id]["node_id_list"] + [""])
 
-        if o_node_id and d_node_id:
-            # Generate a random time within the specified time period
-            rand_time = math.ceil(uniform(start_time, end_time))
+        # o_node_id = choice(zone_dict[o_zone_id]["node_id_list"] + [""])
+        # d_node_id = choice(zone_dict[d_zone_id]["node_id_list"] + [""])
 
-            # Calculate hours and minutes from rand_time
-            hours = rand_time // 60
-            minutes = rand_time % 60
+        o_node_id_lst = zone_dict[o_zone_id]["node_id_list"]
+        d_node_id_lst = zone_dict[d_zone_id]["node_id_list"]
 
-            # Format departure_time as HHMM
-            departure_time = str(f"time:{hours:02d}{minutes:02d}")
+        for o_node_id in o_node_id_lst:
+            for d_node_id in d_node_id_lst:
+                if o_node_id and d_node_id:
+                    # Generate a random time within the specified time period
+                    rand_time = math.ceil(uniform(start_time, end_time))
 
-            agent_lst.append(
-                gmns_geo.Agent(
-                    id=str(i + 1),
-                    agent_type=agent_type,
-                    o_zone_id=o_zone_id,
-                    d_zone_id=d_zone_id,
-                    o_node_id=o_node_id,
-                    d_node_id=d_node_id,
-                    geometry=(f"LINESTRING({node_dict[o_node_id]['x_coord']} {node_dict[o_node_id]['y_coord']},"
-                              f"{node_dict[d_node_id]['x_coord']} {node_dict[d_node_id]['y_coord']})"),
-                    departure_time=departure_time
-                )
-            )
+                    # Calculate hours and minutes from rand_time
+                    hours = rand_time // 60
+                    minutes = rand_time % 60
+
+                    # Format departure_time as HHMM
+                    departure_time = str(f"time:{hours:02d}{minutes:02d}")
+
+                    agent_lst.append(
+                        gmns_geo.Agent(
+                            id=str(i + 1),
+                            agent_type=agent_type,
+                            o_zone_id=o_zone_id,
+                            d_zone_id=d_zone_id,
+                            o_node_id=o_node_id,
+                            d_node_id=d_node_id,
+                            geometry=(f"LINESTRING({node_dict[o_node_id]['x_coord']} {node_dict[o_node_id]['y_coord']},"
+                                      f"{node_dict[d_node_id]['x_coord']} {node_dict[d_node_id]['y_coord']})"),
+                            departure_time=departure_time
+                        )
+                    )
 
     if verbose:
         print("  :Successfully generated agent-based demand data.")
