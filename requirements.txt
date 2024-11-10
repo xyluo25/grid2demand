@@ -1,6 +1,9 @@
-pandas>=2.0.0
-Shapely
-pyufunc
-tqdm
-joblib
-matplotlib
+joblib>=1.4.2
+matplotlib>=3.8.3
+pandas>=2.2.3
+pyproj>=3.7.0
+pytest>=8.3.2
+pyufunc>=0.3.7
+setuptools>=70.3.0
+Shapely>=2.0.6
+tqdm>=4.66.5
