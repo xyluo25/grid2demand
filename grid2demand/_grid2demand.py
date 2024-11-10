@@ -582,6 +582,7 @@ class GRID2DEMAND:
         else:
             node_dict = self.node_dict
 
+        print("  : Generating agent-based demand...")
         self.df_agent = gen_agent_based_demand(node_dict, self.zone_dict,
                                                df_demand=self.df_demand,
                                                time_period=time_periods,

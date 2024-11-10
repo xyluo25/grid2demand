@@ -19,7 +19,7 @@ except ImportError:
 if __name__ == "__main__":
 
     # Step 0: Specify input directory
-    INPUT_DIR = r"datasets\demand_from_TAZ\Avondale_AZ_TAZ_are_centroids"
+    INPUT_DIR = r"datasets\demand_from_TAZ\SF_TAZ_are_centroids"
 
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=INPUT_DIR, verbose=False)
@@ -38,4 +38,4 @@ if __name__ == "__main__":
     net.run_gravity_model()
 
     # Step 4: Output demand, agent, zone, zone_od_dist_table, zone_od_dist_matrix files
-    net.save_results_to_csv(node=True, poi=True, zone=True, agent=True, overwrite_file=False)
+    net.save_results_to_csv(node=True, poi=False, zone=False, overwrite_file=False)

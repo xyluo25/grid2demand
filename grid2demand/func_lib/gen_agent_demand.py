@@ -67,6 +67,7 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
         return pd.DataFrame()
 
     agent_lst = []
+    agent_id = 1
     for i in range(len(df_demand)):
         o_zone_id = df_demand.loc[i, 'o_zone_id']
         d_zone_id = df_demand.loc[i, 'd_zone_id']
@@ -80,6 +81,11 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
         for o_node_id in o_node_id_lst:
             for d_node_id in d_node_id_lst:
                 if o_node_id and d_node_id:
+
+                    # print out the processing message every 5000 agents
+                    if i % 5000 == 0 and i != 0:
+                        print(f"  :Generating agents: {i}/{len(df_demand)}...")
+
                     # Generate a random time within the specified time period
                     rand_time = math.ceil(uniform(start_time, end_time))
 
@@ -92,7 +98,7 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
 
                     agent_lst.append(
                         gmns_geo.Agent(
-                            id=str(i + 1),
+                            id=str(agent_id),
                             agent_type=agent_type,
                             o_zone_id=o_zone_id,
                             d_zone_id=d_zone_id,
@@ -103,6 +109,8 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
                             departure_time=departure_time
                         )
                     )
+
+                    agent_id += 1
 
     if verbose:
         print("  :Successfully generated agent-based demand data.")
