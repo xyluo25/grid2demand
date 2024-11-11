@@ -68,7 +68,7 @@ if __name__ == "__main__":
     net.map_mapping_between_zone_and_node_poi()
 
     # Calculate zone-to-zone distance matrix
-    net.calc_zond_od_distance_matrix(pct=1)
+    net.calc_zone_od_distance_matrix(pct=1)
 
     # Calculate demand by running gravity model
     net.run_gravity_model()
@@ -100,7 +100,7 @@ For more information about the ways you can contribute to grid2demand, visit [ou
 
 If you use grid2demand in your research please use the following BibTeX entry:
 
-Xiangyong Luo, Dustin Carlino, and Xuesong Simon Zhou. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
+Xiangyong Luo. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
 
 ## **Starting with Grid2demand - Learning Sources**
 
@@ -319,7 +319,7 @@ og.connectPOIWithNet(net)
 og.outputNetToCSV(net, output_folder)
 ```
 
-Your will see node.csv, poi.csv and link.csv in your output_folder`<img src="docs/media/bc783b917bac32c27b66e4649a472088.png" style="zoom:80%;" />`
+Your will see node.csv, poi.csv and link.csv in your output_folder `<img src="docs/media/bc783b917bac32c27b66e4649a472088.png" style="zoom:80%;" />`
 
 <img src="docs/media/bff56bb4b68eef97dfb8ee4a337500bb.png" alt=" " style="zoom:80%;" />
 

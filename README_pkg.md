@@ -29,7 +29,7 @@ If you meet installation issues, please reach out to our [developers](mailto:luo
 [!IMPORTANT]
 node.csv and poi.csv should follow the [GMNS](https://github.com/zephyr-data-specs/GMNS) standard and you can generate node.csv and poi.csv using [osm2gmns](https://osm2gmns.readthedocs.io/en/latest/quick-start.html).
 
-### Generate Demand with node.csv and poi.csv (zone_id as activity nodes)
+### Generate demands from node.csv and poi.csv (zone_id as activity nodes)
 
 1. Create zone from node.csv (the boundary of nodes), this will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
 2. Generate demands for between zones (utilize nodes and pois)
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     net.map_mapping_between_zone_and_node_poi()
 
     # Calculate zone-to-zone distance matrix
-    net.calc_zond_od_distance_matrix(pct=1)
+    net.calc_zone_od_distance_matrix(pct=1)
 
     # Calculate demand by running gravity model
     net.run_gravity_model()
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     net.save_results_to_csv(agent=True, overwrite_file=False)
 ```
 
-# Generate Demand with node.csv, poi.csv and zone.csv (from TAZ)
+### Generate demands from node.csv, poi.csv and zone.csv (from TAZ)
 
 ```python
 from __future__ import absolute_import
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     net.map_mapping_between_zone_and_node_poi()
 
     # Calculate zone-to-zone distance matrix
-    net.calc_zond_od_distance_matrix(pct=1)
+    net.calc_zone_od_distance_matrix(pct=1)
 
     # Calculate demand by running gravity model
     net.run_gravity_model()
@@ -124,4 +124,4 @@ For more information about the ways you can contribute to grid2demand, visit [ou
 
 If you use grid2demand in your research please use the following BibTeX entry:
 
-Xiangyong Luo, Dustin Carlino, and Xuesong Simon Zhou. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
+Xiangyong Luo. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556

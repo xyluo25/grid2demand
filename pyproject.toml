@@ -8,7 +8,6 @@ version = "1.0.0rc3"
 description = "A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model"
 authors = [
     {name = "Xiangyong Luo", email = "luoxiangyong01@gmail.com"},
-    {name = "Xuesong Simon Zhou", email = "xzhou74@asu.edu"},
 ]
 maintainers = [
     {name = "Xiangyong Luo", email = "luoxiangyong01@gmail.com"},
@@ -32,7 +31,7 @@ keywords = ["demand", "gravity model", "travel demand", "zone-to-zone demand", "
 dynamic = ["dependencies"]
 
 [project.urls]
-"Homepage" = 'https://github.com/asu-trans-ai-lab/grid2demand'
+"Homepage" = 'https://github.com/xyluo25/grid2demand'
 Documentation = 'https://github.com/xyluo25/grid2demand'
 # Bug_Tracker = 'https://github.com/xyluo25/grid2demand/issues'
 # Repository = "https://github.com/xyluo25/grid2demand"
