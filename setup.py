@@ -24,7 +24,7 @@ except Exception:
 setuptools.setup(
     name="grid2demand",  # Replace with your own username
     version="1.0.0rc3",
-    author="Xiangyong Luo",
+    author="Xiangyong Luo, Xuesong Simon Zhou",
     author_email="luoxiangyong01@gmail.com",
     description="A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model",
     long_description=long_description,
@@ -44,7 +44,7 @@ setuptools.setup(
     package_data={'': ['*.txt', '*.xls', '*.xlsx', '*.csv'],
                   "test_data": ['*.xls']},
     project_urls={
-        'Homepage': 'https://github.com/asu-trans-ai-lab/grid2demand',
+        'Homepage': 'https://github.com/xyluo25/grid2demand',
         'Documentation': 'https://github.com/xyluo25/grid2demand',
         # 'Bug Tracker': '',
         # 'Source Code': '',

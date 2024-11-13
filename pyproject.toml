@@ -8,6 +8,7 @@ version = "1.0.0rc3"
 description = "A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model"
 authors = [
     {name = "Xiangyong Luo", email = "luoxiangyong01@gmail.com"},
+    {name = "Xuesong Simon Zhou", email = "xzhou74@asu.edu"},
 ]
 maintainers = [
     {name = "Xiangyong Luo", email = "luoxiangyong01@gmail.com"},
