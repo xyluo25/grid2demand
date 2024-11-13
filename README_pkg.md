@@ -1,24 +1,22 @@
-## Project description
+## Project Description
 
 GRID2DEMAND: A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model
 
 ## Introduction
 
-Grid2demand is an open-source quick demand generation tool based on the trip generation and trip distribution methods of the standard 4-step travel model. By taking advantage of OSM2GMNS tool to obtain route-able transportation network from OpenStreetMap, Grid2demand aims to further utilize Point of Interest (POI) data to construct trip demand matrix aligned with standard travel models.
+Grid2demand is an open-source quick demand generation tool based on the trip generation and trip distribution methods of the standard 4-step travel model.
+
+By taking advantage of OSM2GMNS tool to obtain route-able transportation network from OpenStreetMap, Grid2demand aims to further utilize Point of Interest (POI) data to construct trip demand matrix aligned with standard travel models.
 
 You can get access to the introduction video with the link: [https://www.youtube.com/watch?v=EfjCERQQGTs&amp;t=1021s](https://www.youtube.com/watch?v=EfjCERQQGTs&t=1021s)
 
 You can find base-knowledge tutorial with the link: [Base Knowledge such as transportation 4 stages planning](https://github.com/asu-trans-ai-lab/grid2demand/tree/main/docs)
 
-You can find the tutorial code witht the link: [How To Use Grid2demand](https://github.com/asu-trans-ai-lab/grid2demand/tree/main/tutorial)
-
-## Quick Start
-
-Users can refer to the [code template and test data set](https://github.com/xyluo25/grid2demand/tree/main) to have a quick start.
+You can find the tutorial code witht the link: [How To Use Grid2demand](https://github.com/xyluo25/grid2demand/tree/main/tutorial)
 
 ## Installation
 
-```
+```python
 pip install grid2demand
 ```
 
@@ -49,14 +47,14 @@ if __name__ == "__main__":
     # load network: node and poi
     net.load_network()
 
-    # Generate zone.csv from node dictionary by specifying number of x blocks and y blocks
+    # Generate zone.csv from node boundary by specifying number of x blocks and y blocks
     net.net2grid(num_x_blocks=10, num_y_blocks=10)
     # net.net2grid(cell_width=10, cell_height=10, unit="km")
 
-    # Generate zone dictionary from zone.csv
+    # Load zone from zone.csv
     net.taz2zone()
 
-    # Map zones with nodes and poi, viseversa
+    # Map zones with nodes and pois, viseversa
     net.map_mapping_between_zone_and_node_poi()
 
     # Calculate zone-to-zone distance matrix
@@ -83,13 +81,13 @@ if __name__ == "__main__":
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True, mode_type="auto")
 
-    # load network: node and poi
+    # Load network: node and poi
     net.load_network()
 
-    # Generate zone dictionary from zone.csv
+    # Load zone from zone.csv
     net.taz2zone()
 
-    # Map zones with nodes and poi, viseversa
+    # Map zones with nodes and pois, viseversa
     net.map_mapping_between_zone_and_node_poi()
 
     # Calculate zone-to-zone distance matrix
@@ -99,7 +97,7 @@ if __name__ == "__main__":
     net.run_gravity_model()
 
     # Save demand, zone, updated node, updated poi to csv
-    net.save_results_to_csv(agent=True, overwrite_file=False)
+    net.save_results_to_csv(node=Frale, zone=False, agent=False, overwrite_file=False)
 ```
 
 ## Call for Contributions
@@ -124,4 +122,4 @@ For more information about the ways you can contribute to grid2demand, visit [ou
 
 If you use grid2demand in your research please use the following BibTeX entry:
 
-Xiangyong Luo. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
+Xiangyong Luo, Xuesiong Simon Zhou (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
