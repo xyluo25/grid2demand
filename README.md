@@ -1,4 +1,4 @@
-# **Grid2demand**
+# **grid2demand**
 
 GRID2DEMAND: A tool for generating zone-to-zone travel demand based on grid cells or TAZs and gravity model
 
@@ -25,7 +25,7 @@ GRID2DEMAND: A tool for generating zone-to-zone travel demand based on grid cell
     - [**OD demand estimation using link counts and different data sources**](#od-demand-estimation-using-link-counts-and-different-data-sources)
   - [**Quick Implementation and Visualization**](#quick-implementation-and-visualization)
 
-## **Code Examples**
+## **Quick Examples**
 
 ### **Installation**
 
@@ -33,14 +33,14 @@ GRID2DEMAND: A tool for generating zone-to-zone travel demand based on grid cell
 pip install grid2demand
 ```
 
-If you meet installation issues, please refer to the [user guide](https://github.com/asu-trans-ai-lab/grid2demand) for solutions.
+If you encounter installation issues, please refer to the [user guide](https://github.com/asu-trans-ai-lab/grid2demand) for solutions.
 
 ### **Simple Example**
 
-#### **Generate Demand with node.csv and poi.csv**
+#### **Generate demands with node.csv and poi.csv**
 
-1. Create zone from node.csv, this will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
-2. Generate demands for between zones (utilize nodes and pois)
+1. Create zone from node.csv.  Will generate grid cells (num_x_blocks, num_y_blocks, or x length and y length in km for each grid cell)
+2. Generate demands between zones
 
 ```python
 from __future__ import absolute_import
@@ -54,14 +54,14 @@ if __name__ == "__main__":
     # Initialize a GRID2DEMAND object
     net = gd.GRID2DEMAND(input_dir=input_dir, use_zone_id=True, mode_type="auto")
 
-    # load network: node and poi
+    # Load network: node and poi
     net.load_network()
 
-    # Generate zone.csv from node dictionary by specifying number of x blocks and y blocks
+    # Generate zone.csv from node by specifying number of x blocks and y blocks
     net.net2grid(num_x_blocks=10, num_y_blocks=10)
     # net.net2grid(cell_width=10, cell_height=10, unit="km")
 
-    # Generate zone dictionary from zone.csv
+    # Load zone from zone.csv
     net.taz2zone()
 
     # Map zones with nodes and poi, viseversa
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     net.run_gravity_model()
 
     # Save demand, zone, updated node, updated poi, agent to csv
-    net.save_results_to_csv(agent=True, overwrite_file=False)
+    net.save_results_to_csv(node=False, zone=False, agent=False, overwrite_file=False)
 
 ```
 
@@ -100,7 +100,7 @@ For more information about the ways you can contribute to grid2demand, visit [ou
 
 If you use grid2demand in your research please use the following BibTeX entry:
 
-Xiangyong Luo. (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
+Xiangyong Luo, Xuesong Simon Zhou (2023). [xyluo25/grid2demand](https://github.com/xyluo25/grid2demand/): Zenodo. https://doi.org/10.5281/zenodo.11212556
 
 ## **Starting with Grid2demand - Learning Sources**
 
@@ -114,7 +114,7 @@ If you have not used Grid2demand before, here are some advices to get started.
 
 1. Read the user guide or watch the video at https://www.youtube.com/watch?v=EfjCERQQGTs.
 2. Obtain a map.osm or map.osm.pbf file for your area of interest at https://extract.bbbike.org/ or openstreetmap.org
-3. Look at the examples at Google colab environment https://github.com/asu-trans-ai-lab/grid2demand/blob/main/grid2demand_tutorial.ipynb
+3. Look at the examples at Google colab environment https://github.com/xyluo25/grid2demand/blob/main/tutorial/Colab%20SF_Example.ipynb
 4. Install Python, Grid2demand and QGIS on your computer or using Google Colab environment to modify one of the examples to implement your own model.
 5. Post your questions on the users group:
 
@@ -125,11 +125,7 @@ Open-source tool of grid2demand aims to provide an open-source quick demand gene
 
 To know more about this tool, please check out the 3rd mini teaching lesson in our podcast series [https://www.youtube.com/watch?v=EfjCERQQGTs](https://www.youtube.com/watch?v=EfjCERQQGTs).
 
-Gird2demand is an open-source trip generation and distribution tool for teaching transportation planning and applications. It generates zone-to-zone travel demand based on alphanumeric grid zones. Users can obtain zone-to-zone and node-to-node travel demand with a few lines of python code based on OpenStreetMap and OSM2GMNS.
-
-For the python source code and sample network files, readers can visit the project homepage at ASU Trans+AI Lab Github
-([https://github.com/asu-trans-ai-lab/grid2demand](https://github.com/asu-trans-ai-lab/grid2demand)). The Jupyter notebook example can be found at
-[https://github.com/asu-trans-ai-lab/grid2demand/blob/main/grid2demand.ipynb](https://github.com/asu-trans-ai-lab/grid2demand/blob/main/grid2demand_tutorial.ipynb), which is also accessible through Google Colab.
+Gird2demand is an open-source trip generation and distribution tool for teaching transportation planning and applications. It generates zone-to-zone travel demand based on alpha-numeric grid zones. Users can obtain zone-to-zone and node-to-node travel demand with a few lines of python code based on OpenStreetMap and OSM2GMNS.
 
 Mini teaching lesson: [https://www.youtube.com/watch?v=EfjCERQQGTs](https://www.youtube.com/watch?v=EfjCERQQGTs)
 
@@ -335,18 +331,16 @@ Please supply additional accurate POI-type information if needed.
 ```python
 import grid2demand as gd
 
-input_dir = "Path-folder-to-your-node.csv-and-poi.csv"
+input_dir = "Directory-to-your-node.csv-and-poi.csv"
 
 net = gd.GRID2DEMAND(input_dir)
 ```
 
 1. **Partition network into grid cells**
 
-Users can customize the number of grid cells by setting “num_x_blocks” and
-“num_y_blocks”.
+Users can customize the number of grid cells by setting “num_x_blocks” and“num_y_blocks”.
 
-Users can customize the cell’s width and height in prefered units by setting “cell_width”,
-“cell_height” and "unit").
+Users can customize the cell’s width and height in prefered units by setting “cell_width”,“cell_height” and "unit").
 
 \~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~
 
@@ -356,9 +350,6 @@ net.load_network()
 
 # create zone
 net.net2grid(num_x_blocks=10,num_y_blocks=10)
-
-# or
-# net.net2grid(net.node_dict, num_x_blocks=10, num_y_blocks=10)
 
 # or generate zone based on grid size with 10 km width and 10 km height for each zone
 # net.net2grid(cell_width=10, cell_height=10, unit='km')
