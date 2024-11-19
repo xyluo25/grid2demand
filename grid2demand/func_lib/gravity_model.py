@@ -118,9 +118,6 @@ def run_gravity_model(zone_dict: dict,
         beta = trip_purpose_dict[trip_purpose]["beta"]
         gamma = trip_purpose_dict[trip_purpose]["gamma"]
 
-    # update zone attraction and production
-    # zone_dict = calc_zone_production_attraction(node_dict, zone_dict)
-
     # perform zone od friction matrix
     zone_od_friction_matrix_dict = {
         zone_id_pair: alpha * (od_dist ** beta) * (
