@@ -8,7 +8,7 @@ Actions:
 * [X] For zone file, change id to zone_id
 * [ ] Production and Attraction calculation: if poi exits, calculate poi based demand. elif activity node exist, calculate activity_node based demand, else, 0
 * [ ] The calculated demands value are small -> change to 'reasonable' values
-* [ ] Add multiprocessing on zone centroid mapping with node and poi
+* [X] Add multiprocessing on zone centroid mapping with node and poi
 
 1. [ ] Overall link: https://www.caliper.com/tctraveldemand.htm
 2. [ ] Add load_zone_census_tracts

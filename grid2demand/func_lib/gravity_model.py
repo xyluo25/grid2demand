@@ -49,8 +49,6 @@ def calc_zone_production_attraction(node_dict: dict, poi_dict: dict, zone_dict: 
                             zone_dict[zone_name]["attraction"] += poi_trip_rate[key] * \
                                 poi_dict[poi_id]["area"] / 1000
 
-                    # zone_dict[zone_name].production += poi_dict[poi_id].production
-                    # zone_dict[zone_name].attraction += poi_dict[poi_id].attraction
                 except KeyError:
                     continue
 
