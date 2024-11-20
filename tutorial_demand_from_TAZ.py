@@ -6,15 +6,8 @@
 ##############################################################
 
 from __future__ import absolute_import
-from pathlib import Path
-import os
+import grid2demand as gd
 
-try:
-    import grid2demand as gd
-except ImportError:
-    root_path = Path(os.path.abspath(__file__)).parent.parent
-    os.chdir(root_path)
-    import grid2demand as gd
 
 if __name__ == "__main__":
 
