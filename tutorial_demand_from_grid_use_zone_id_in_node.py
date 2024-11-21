@@ -29,10 +29,10 @@ if __name__ == "__main__":
     net.taz2zone()
 
     # Step 4: Map the zone id in node and poi, vise versa
-    net.map_mapping_between_zone_and_node_poi()
+    net.map_zone_node_poi()
 
     # Step 5: Calculate zone-to-zone travel time matrix
-    net.calc_zone_od_distance_matrix(pct=1)
+    net.calc_zone_od_distance(pct=1)
 
     # Step 6: Run gravity model to generate agent-based demand
     net.run_gravity_model()

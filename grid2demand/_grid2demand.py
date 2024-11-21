@@ -349,7 +349,7 @@ class GRID2DEMAND:
         self.zone_dict = zone_dict
         return None
 
-    def map_mapping_between_zone_and_node_poi(self) -> None:
+    def map_zone_node_poi(self) -> None:
         """Map mapping between zone and node/poi.
 
         Raises:
@@ -432,10 +432,10 @@ class GRID2DEMAND:
         self.__config["is_sync_geometry"] = True
         return None
 
-    def calc_zone_od_distance_matrix(self, zone_dict: dict = "",
-                                     *,
-                                     selected_zone_id: list = [],
-                                     pct: float = 1.0) -> None:
+    def calc_zone_od_distance(self, zone_dict: dict = "",
+                              *,
+                              selected_zone_id: list = [],
+                              pct: float = 1.0) -> None:
         """calculate zone-to-zone od distance matrix
 
         Args:
