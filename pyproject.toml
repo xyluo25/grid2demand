@@ -34,7 +34,7 @@ dynamic = ["dependencies"]
 [project.urls]
 "Homepage" = 'https://github.com/xyluo25/grid2demand'
 Documentation = 'https://github.com/xyluo25/grid2demand'
-# Bug_Tracker = 'https://github.com/xyluo25/grid2demand/issues'
+Bug_Tracker = 'https://github.com/xyluo25/grid2demand/issues'
 # Repository = "https://github.com/xyluo25/grid2demand"
 # Download = "https://www.pepy.tech/projects/pyufunc"
 
