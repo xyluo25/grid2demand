@@ -5,6 +5,9 @@
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
 
+import sys
+from pathlib import Path
+sys.path.append(Path(__file__).parents[1].as_posix())
 
 import pytest
 from grid2demand.func_lib.read_node_poi import read_node

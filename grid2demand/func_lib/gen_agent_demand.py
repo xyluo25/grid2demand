@@ -12,10 +12,11 @@ import math
 import re
 
 import pandas as pd
-from pyufunc import gmns_geo
+from pyufunc import gmns_Agent
 
 
-def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
+def gen_agent_based_demand(node_dict: dict,
+                           zone_dict: dict,
                            path_demand: str = "",
                            df_demand: pd.DataFrame = "",
                            agent_type: str = "v",
@@ -97,7 +98,7 @@ def gen_agent_based_demand(node_dict: dict, zone_dict: dict,
                     departure_time = str(f"time:{hours:02d}{minutes:02d}")
 
                     agent_lst.append(
-                        gmns_geo.Agent(
+                        gmns_Agent(
                             id=str(agent_id),
                             agent_type=agent_type,
                             o_zone_id=o_zone_id,
