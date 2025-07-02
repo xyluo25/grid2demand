@@ -1,7 +1,7 @@
 joblib>=1.4.2
 pandas>=2.2.3
 pyproj>=3.7.0
-pyufunc>=0.3.7
+pyufunc>=0.4.1
 Shapely>=2.0.6
 tqdm>=4.66.5
 matplotlib
