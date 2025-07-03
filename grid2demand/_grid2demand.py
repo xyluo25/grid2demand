@@ -249,7 +249,7 @@ class GRID2DEMAND:
                  num_y_blocks: int = 10,
                  cell_width: float = 0,
                  cell_height: float = 0,
-                 unit: str = "km") -> None:
+                 unit: str = "km") -> pd.DataFrame:
         """convert node_dict to zone_dict by grid.
         The grid can be defined by num_x_blocks and num_y_blocks, or cell_width and cell_height.
         if num_x_blocks and num_y_blocks are specified
@@ -319,10 +319,10 @@ class GRID2DEMAND:
         zone_df.to_csv(path_output, index=False)
 
         print(f"  : net2grid saved grids as zone.csv to {path_output} \n")
-        return None
+        return zone_df
 
     @func_time
-    def taz2zone(self, zone_file: str = "") -> None:
+    def taz2zone(self, zone_file: str = "") -> dict:
         """generate zone dictionary from zone.csv (TAZs)
 
         Args:
@@ -331,6 +331,10 @@ class GRID2DEMAND:
 
         Raises:
             FileNotFoundError: Error: File {zone_file} does not exist.
+
+        Returns:
+            dict: zone_dict {zone_id: Zone}, where Zone is a dictionary with zone attributes.
+                if zone_file is not specified, use self.zone_file.
         """
 
         # update zone_file if specified
@@ -347,7 +351,7 @@ class GRID2DEMAND:
             self.__config["is_centroid"] = True
 
         self.zone_dict = zone_dict
-        return None
+        return self.zone_dict
 
     def map_zone_node_poi(self) -> None:
         """Map mapping between zone and node/poi.
@@ -441,6 +445,10 @@ class GRID2DEMAND:
         Args:
             zone_dict (dict): the zone dictionary. Defaults to "".
                 if not specified, use self.zone_dict.
+            selected_zone_id (list): the selected zone ids to calculate od distance matrix. Defaults to [].
+                if not specified, calculate od distance matrix for all zones.
+            pct: the percentage to randomly select zones from given zone_dict. Defaults to 1.0.
+                if pct < 1.0, only calculate od distance matrix for the specified percentage of zones.
         """
 
         # if not specified, use self.zone_dict as input
@@ -457,12 +465,23 @@ class GRID2DEMAND:
 
     def calc_zone_prod_attr(self,
                             trip_rate_file: str = "",
-                            trip_purpose: int = 1) -> None:
+                            trip_purpose: int = 1) -> bool:
         """calculate zone production and attraction based on node production and attraction
 
         Args:
-            node_dict (dict): Defaults to "". if not specified, use self.node_dict.
-            zone_dict (dict): Defaults to "". if not specified, use self.zone_dict.
+            trip_rate_file (str, optional): poi trip rate file path. Defaults to "".
+            trip_purpose (int, optional): the trip purpose. Defaults to 1. 1: HBW, 2: HBO, 3: NHB.
+
+        See Also:
+            The trip rate file must be a csv file, template csv file can be found in:
+            https://github.com/xyluo25/grid2demand/blob/main/docs/poi_trip_rate.csv
+
+        Raises:
+            FileNotFoundError: Error: File {trip_rate_file} does not exist.
+            ValueError: Error: trip_purpose must be 1, 2 or 3, represent home-based work, home-based others, non home-based.
+
+        Returns:
+            bool: True if zone production and attraction is calculated successfully, False otherwise.
         """
 
         # update input parameters if specified
@@ -506,7 +525,7 @@ class GRID2DEMAND:
         else:
             self.node_dict = node_dict
         self.__config["is_zone_prod_attr"] = True
-        return None
+        return True
 
     def run_gravity_model(self,
                           *,
@@ -514,16 +533,19 @@ class GRID2DEMAND:
                           beta: float = -0.02,
                           gamma: float = -0.123,
                           trip_rate_file: str = "",
-                          trip_purpose: int = 1) -> None:
+                          trip_purpose: int = 1) -> pd.DataFrame:
         """run gravity model to generate demand
 
         Args:
-            zone_dict (dict): dict store zones info. Defaults to "".
-            zone_od_dist_matrix (dict): OD distance matrix. Defaults to "".
-            trip_purpose (int): purpose of trip. Defaults to 1.
             alpha (float): parameter alpha. Defaults to 28507.
             beta (float): parameter beta. Defaults to -0.02.
             gamma (float): parameter gamma. Defaults to -0.123.
+            trip_rate_file (str, optional): poi trip rate file path. Defaults to "".
+            trip_purpose (int, optional): the trip purpose. Defaults to 1. 1: HBW, 2: HBO, 3: NHB.
+
+        See Also:
+            The trip rate file must be a csv file, template csv file can be found in:
+            https://github.com/xyluo25/grid2demand/blob/main/docs/poi_trip_rate.csv
 
         Returns:
             pd.DataFrame: the final demand dataframe
@@ -567,15 +589,13 @@ class GRID2DEMAND:
         # self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
 
         print("  : Successfully generated OD demands.")
-        return None
+        return self.df_demand
 
-    def gen_agent_based_demand(self, time_periods: str = "0700-0800") -> None:
+    def gen_agent_based_demand(self, time_periods: str = "0700-0800") -> pd.DataFrame:
         """generate agent-based demand
 
         Args:
-            node_dict (dict): _description_. Defaults to "".
-            zone_dict (dict): _description_. Defaults to "".
-            df_demand (pd.DataFrame): _description_. Defaults to "".
+            time_periods (str): the time periods to generate agent-based demand. Defaults to "0700-0800".
         """
         if hasattr(self, "node_dict_activity_nodes"):
             node_dict = self.node_dict_activity_nodes
@@ -587,7 +607,7 @@ class GRID2DEMAND:
                                                df_demand=self.df_demand,
                                                time_period=time_periods,
                                                verbose=self.verbose)
-        return None
+        return self.df_agent
 
     def save_results_to_csv(self, output_dir: str = "",
                             demand: bool = True,
@@ -599,7 +619,7 @@ class GRID2DEMAND:
                             agent_time_period: str = "0700-0800",
                             zone_od_dist_table: bool = False,
                             zone_od_dist_matrix: bool = False,
-                            overwrite_file: bool = False) -> None:
+                            overwrite_file: bool = False) -> bool:
         """save results to csv files
 
         Args:
@@ -643,4 +663,4 @@ class GRID2DEMAND:
                 self.gen_agent_based_demand()
             save_agent(self, overwrite_file=overwrite_file)
 
-        return None
+        return True
