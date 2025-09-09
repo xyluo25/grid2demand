@@ -15,6 +15,8 @@ from dataclasses import field, fields, make_dataclass, MISSING, is_dataclass, as
 from typing import Any, List, Tuple, Type, Dict
 import shapely
 import numpy as np
+import pandas as pd
+from itertools import product
 
 
 def create_dataclass_from_dict(name: str, data: Dict[str, Any]) -> Type:
@@ -403,3 +405,109 @@ def split_dict_by_chunk(dictionary: dict, chunk_size: int, pair_val: list = []) 
         chunk = dict(itertools.islice(iterator, chunk_size))
         if chunk:  # check if chunk is not empty
             yield [chunk] + pair_val
+
+
+def half_to_full_od(df: pd.DataFrame,
+                    col_name: list = ["o_zone_id", "d_zone_id", "value"],
+                    diagonal_value: int | float = 0) -> pd.DataFrame:
+    """
+    Expand an OD-value table into all ordered pairs (o, d), enforcing symmetry:
+      - If both (i, j) and (j, i) appear in input, their values must match.
+      - Diagonals (i, i) are set to `diagonal_value` (default 0).
+
+    Args:
+        df (pd.DataFrame): Input DataFrame with columns ['o', 'd', 'value'].
+        col_name (list, optional): Column names for origin, destination, and value. Defaults to ['o_zone_id', 'd_zone_id', 'value'].
+        diagonal_value (int | float, optional): Value to assign to diagonals (i, i). Defaults to 0.
+
+    Raise:
+        ValueError: If inconsistent values are found for a pair (i, j) and (j, i).
+        KeyError: If any unordered pair is missing from the input DataFrame.
+
+    Returns:
+        pd.DataFrame: Expanded DataFrame with all ordered pairs and enforced symmetry.
+    """
+    # Build set of unique nodes
+    nodes = sorted(set(df[col_name[0]]).union(df[col_name[1]]))
+
+    # Map unordered pairs -> value, checking consistency if duplicates exist
+    pair_to_val = {}
+    for o, d, v in df[col_name].itertuples(index=False):
+        key = tuple(sorted((o, d)))
+        if key in pair_to_val and pair_to_val[key] != v:
+            raise ValueError(
+                f"Inconsistent values for pair {key}: {pair_to_val[key]} vs {v}")
+        pair_to_val[key] = v
+
+    # Generate full ordered pairs
+    rows = []
+    for i, j in product(nodes, nodes):
+        if i == j:
+            val = diagonal_value
+        else:
+            key = tuple(sorted((i, j)))
+            if key not in pair_to_val:
+                raise KeyError(
+                    f"Missing value for unordered pair {key}. Add it or set a default.")
+            val = pair_to_val[key]
+        rows.append((i, j, val))
+
+    return (
+        pd.DataFrame(rows, columns=col_name)
+        .sort_values(col_name[:2])
+        .reset_index(drop=True)
+    )
+
+
+def full_to_half_od(full_df: pd.DataFrame,
+                    col_name: list = ["o_zone_id", "d_zone_id", "value"],
+                    validate: bool = True,
+                    rtol: float = 0.0,
+                    atol: float = 0.0) -> pd.DataFrame:
+    """
+    Collapse a full ordered OD table to unique unordered pairs (o < d).
+        - Ignores diagonals (i, i).
+        - If validate is True, checks that (i, j) and (j, i) have equal values
+            up to np.allclose with rtol/atol. Raises ValueError if not.
+
+    Args:
+        full_df (pd.DataFrame): Input DataFrame with columns ['o_zone_id', 'd_zone_id', 'value'].
+        col_name (list, optional): Column names for origin, destination, and value. Defaults to ['o_zone_id', 'd_zone_id', 'value'].
+        validate (bool, optional): Whether to validate symmetry of values for pairs. Defaults to True.
+        rtol (float, optional): Relative tolerance for np.allclose when validating. Defaults to 0.0.
+        atol (float, optional): Absolute tolerance for np.allclose when validating. Defaults to 0.0.
+
+    Raises:
+        ValueError: If validate is True and asymmetric values are found for a pair.
+
+    Returns:
+        pd.DataFrame: Collapsed DataFrame with unique unordered pairs and their values.
+    """
+    # Drop diagonals
+    df = full_df.loc[full_df[col_name[0]] != full_df[col_name[1]], col_name].copy()
+
+    # Build unordered pair key and normalize orientation to o < d
+    df['_key'] = df.apply(lambda r: (
+        min(r[col_name[0]], r[col_name[1]]), max(r[col_name[0]], r[col_name[1]])), axis=1)
+
+    def _pick_value(s: pd.Series) -> float:
+        # s contains the two symmetric values for a pair, possibly duplicates
+        if not validate:
+            return s.iloc[0]
+        vals = s.to_numpy(dtype=float)
+        if np.allclose(vals.min(), vals.max(), rtol=rtol, atol=atol):
+            return float(vals.mean())  # equal within tolerance
+        raise ValueError(f"Asymmetric values for pair: {vals.tolist()}")
+
+    collapsed = (
+        df.groupby('_key', as_index=False)['value']
+          .agg(_pick_value)
+          .rename(columns={'_key': 'pair'})
+    )
+
+    # Split the tuple key back to two columns with o < d
+    collapsed[col_name[:2]] = pd.DataFrame(
+        collapsed['pair'].tolist(), index=collapsed.index)
+    result = collapsed[col_name].sort_values(
+        col_name[:2]).reset_index(drop=True)
+    return result

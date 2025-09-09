@@ -16,7 +16,7 @@ from pyufunc import (path2linux,
                      func_time)
 
 from grid2demand.utils_lib.pkg_settings import pkg_settings
-from grid2demand.utils_lib.utils import check_required_files_exist
+from grid2demand.utils_lib.utils import check_required_files_exist, half_to_full_od
 
 from grid2demand.func_lib.read_node_poi import (read_node,
                                                 read_poi)
@@ -38,7 +38,8 @@ from grid2demand.func_lib.save_results import (save_demand,
                                                save_node,
                                                save_poi,
                                                save_zone_od_dist_table,
-                                               save_zone_od_dist_matrix)
+                                               save_zone_od_dist_matrix,
+                                               save_demand_od_matrix)
 
 
 class GRID2DEMAND:
@@ -585,9 +586,12 @@ class GRID2DEMAND:
 
         # Converting dictionary to DataFrame
         od_list = [(key[0], key[1], value) for key, value in zone_od_demand_matrix.items()]
-        self.df_demand = pd.DataFrame(od_list, columns=['o_zone_id', 'd_zone_id', 'volume'])
+        df_demand = pd.DataFrame(od_list, columns=['o_zone_id', 'd_zone_id', 'volume'])
         # self.df_demand = pd.DataFrame(list(self.zone_od_demand_matrix.values()))
 
+        self.df_demand = half_to_full_od(df_demand,
+                                         col_name=["o_zone_id", "d_zone_id", "volume"],
+                                         diagonal_value=0)
         print("  : Successfully generated OD demands.")
         return self.df_demand
 
@@ -596,6 +600,9 @@ class GRID2DEMAND:
 
         Args:
             time_periods (str): the time periods to generate agent-based demand. Defaults to "0700-0800".
+
+        Returns:
+            pd.DataFrame: the agent-based demand dataframe
         """
         if hasattr(self, "node_dict_activity_nodes"):
             node_dict = self.node_dict_activity_nodes
@@ -619,6 +626,7 @@ class GRID2DEMAND:
                             agent_time_period: str = "0700-0800",
                             zone_od_dist_table: bool = False,
                             zone_od_dist_matrix: bool = False,
+                            demand_od_matrix: bool = False,
                             overwrite_file: bool = False) -> bool:
         """save results to csv files
 
@@ -628,9 +636,10 @@ class GRID2DEMAND:
             node (bool): whether to save node file. Defaults to True.
             poi (bool): whether to save poi file. Defaults to True.
             agent (bool): whether to save agent file. Defaults to False.
+            agent_time_period (str): the time period for generating agent-based demand. Defaults to "0700-0800".
             zone_od_dist_table (bool): whether to save zone od distance table. Defaults to False.
             zone_od_dist_matrix (bool): whether to save zone od distance matrix. Defaults to False.
-            is_demand_with_geometry (bool): whether include geometry in demand file. Defaults to False.
+            demand_od_matrix (bool): whether to save demand od matrix. Defaults to False.
             overwrite_file (bool): whether to overwrite existing files. Defaults to True.
         """
 
@@ -655,6 +664,9 @@ class GRID2DEMAND:
 
         if zone_od_dist_matrix:
             save_zone_od_dist_matrix(self, overwrite_file=overwrite_file)
+
+        if demand_od_matrix:
+            save_demand_od_matrix(self, overwrite_file=overwrite_file)
 
         if agent:
             if agent_time_period:

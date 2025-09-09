@@ -148,7 +148,7 @@ def save_zone_od_dist_table(self, overwrite_file: bool = True) -> None:
     else:
         od_dist_list = [[key[0], key[1], value] for key, value in self.zone_od_dist_matrix.items()]
         zone_od_dist_table_df = pd.DataFrame(od_dist_list)
-        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "d_zone_id", "dist_km", ]]
+        zone_od_dist_table_df.columns = ["o_zone_id", "d_zone_id", "dist_km", ]
         zone_od_dist_table_df.to_csv(path_output, index=False)
         print(f"  : Successfully saved zone_od_dist_table.csv to {self.output_dir}")
     return None
@@ -169,11 +169,32 @@ def save_zone_od_dist_matrix(self, overwrite_file: bool = True) -> None:
     else:
         od_dist_list = [[key[0], key[1], value] for key, value in self.zone_od_dist_matrix.items()]
         zone_od_dist_table_df = pd.DataFrame(od_dist_list)
-        zone_od_dist_table_df = zone_od_dist_table_df[["o_zone_id", "d_zone_id", "dist_km", ]]
+        zone_od_dist_table_df.columns = ["o_zone_id", "d_zone_id", "dist_km", ]
         zone_od_dist_matrix_df = zone_od_dist_table_df.pivot(index='o_zone_id',
                                                              columns='d_zone_id',
-                                                             values='dist_km')
+                                                             values='dist_km').fillna(0)
 
         zone_od_dist_matrix_df.to_csv(path_output)
         print(f"  : Successfully saved zone_od_dist_matrix.csv to {self.output_dir}")
+    return None
+
+
+def save_demand_od_matrix(self, overwrite_file: bool = True) -> None:
+    """Generate demand_od_matrix.csv file"""
+
+    if overwrite_file:
+        path_output = path2linux(os.path.join(self.output_dir, "demand_od_matrix.csv"))
+    else:
+        path_output = generate_unique_filename(path2linux(os.path.join(self.output_dir, "demand_od_matrix.csv")))
+
+    # check if df_demand exists
+    if not hasattr(self, "df_demand"):
+        print("  : df_demand does not exist. Please run run_gravity_model() first.")
+    else:
+        demand_od_matrix_df = self.df_demand.pivot(index='o_zone_id',
+                                                   columns='d_zone_id',
+                                                   values='volume').fillna(0)
+
+        demand_od_matrix_df.to_csv(path_output)
+        print(f"  : Successfully saved demand_od_matrix.csv to {self.output_dir}")
     return None

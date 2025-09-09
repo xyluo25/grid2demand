@@ -20,6 +20,7 @@ from .func_lib.read_zone import taz2zone
 from .func_lib.plot_net import plot_gd
 
 from .utils_lib.pkg_settings import pkg_settings
+from .utils_lib.utils import half_to_full_od, full_to_half_od
 from ._grid2demand import GRID2DEMAND
 
 
@@ -48,6 +49,7 @@ check_python_version()
 # print('grid2demand, version 0.4.8, supports Python 3.10 or higher')
 
 __all__ = ["read_node", "read_poi", "read_network",
+           "half_to_full_od", "full_to_half_od",
            "net2grid",
            "taz2zone",
            "plot_gd",
