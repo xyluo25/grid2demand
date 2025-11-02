@@ -245,22 +245,27 @@ class GRID2DEMAND:
         return None
 
     def net2grid(self, *,
-                 net_coords_min_max: list = [],
+                 net_bbox: list = [],
                  num_x_blocks: int = 10,
                  num_y_blocks: int = 10,
                  cell_width: float = 0,
                  cell_height: float = 0,
                  unit: str = "km") -> pd.DataFrame:
-        """convert node_dict to zone_dict by grid.
+        """convert node to zone by grid.
         The grid can be defined by num_x_blocks and num_y_blocks, or cell_width and cell_height.
+
         if num_x_blocks and num_y_blocks are specified
             the grid will be divided into num_x_blocks * num_y_blocks.
         if cell_width and cell_height are specified
             the grid will be divided into cells with cell_width * cell_height.
-        Note: num_x_blocks and num_y_blocks have higher priority to cell_width and cell_height.
-              if num_x_blocks and num_y_blocks are specified, cell_width and cell_height will be ignored.
+
+        Notes:
+            num_x_blocks and num_y_blocks have higher priority to cell_width and cell_height.
+            if num_x_blocks and num_y_blocks are specified, cell_width and cell_height will be ignored.
 
         Args:
+            net_bbox (list): the boundary box of the study area. Defaults to [].
+                sample: [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
             node_dict (dict[int, Node]): node_dict {node_id: Node}, default is self.node_dict.
             num_x_blocks (int): total number of blocks/grids from x direction. Defaults to 10.
             num_y_blocks (int): total number of blocks/grids from y direction. Defaults to 10.
@@ -300,7 +305,7 @@ class GRID2DEMAND:
             raise Exception("Error: node_dict is not valid. Please check your node.csv first.")
 
         zone_dict_with_gate = net2grid(
-            net_coords_min_max=net_coords_min_max,
+            net_bbox=net_bbox,
             node_dict=node_dict,
             num_x_blocks=num_x_blocks,
             num_y_blocks=num_y_blocks,

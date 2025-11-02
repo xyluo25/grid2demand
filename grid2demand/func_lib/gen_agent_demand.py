@@ -79,14 +79,13 @@ def gen_agent_based_demand(node_dict: dict,
         o_node_id_lst = zone_dict[o_zone_id]["node_id_list"]
         d_node_id_lst = zone_dict[d_zone_id]["node_id_list"]
 
+        # print out the processing message every 5000 agents
+        if i % 5000 == 0 and i != 0:
+            print(f"    :Generating agents: {i}/{len(df_demand)}...")
+
         for o_node_id in o_node_id_lst:
             for d_node_id in d_node_id_lst:
                 if o_node_id and d_node_id:
-
-                    # print out the processing message every 5000 agents
-                    if i % 5000 == 0 and i != 0:
-                        print(f"  :Generating agents: {i}/{len(df_demand)}...")
-
                     # Generate a random time within the specified time period
                     rand_time = math.ceil(uniform(start_time, end_time))
 

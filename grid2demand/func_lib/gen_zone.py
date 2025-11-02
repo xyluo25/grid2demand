@@ -309,7 +309,7 @@ def add_zone_to_pois(poi_dict: dict, zone_dict: dict) -> dict:
 
 @func_running_time
 def net2grid(*,  # enforce the use of keyword arguments
-             net_coords_min_max: list = [],  # [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
+             net_bbox: list = [],  # [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
              node_dict: dict[str, Node] = {},
              zone_dict: dict[str, Zone] = {},
              num_x_blocks: int = 10,
@@ -326,7 +326,7 @@ def net2grid(*,  # enforce the use of keyword arguments
             if num_x_blocks and num_y_blocks are specified, cell_width and cell_height will be ignored.
 
     Args:
-        net_coords_min_max (list): the boundary of the study area. Defaults to [].
+        net_bbox (list): the boundary box of the study area. Defaults to [].
             sample: [coord_x_min, coord_x_max, coord_y_min, coord_y_max]
         node_dict (dict[int, Node]): node_dict {node_id: Node}
         num_x_blocks (int, optional): total number of blocks/grids from x direction. Defaults to 10.
@@ -351,18 +351,18 @@ def net2grid(*,  # enforce the use of keyword arguments
 
     """
 
-    # valid tin net_coords_min_max
-    if not isinstance(net_coords_min_max, list):
-        raise ValueError("Please provide net_coords_min_max as a list")
+    # valid tin net_bbox
+    if not isinstance(net_bbox, list):
+        raise ValueError("Please provide net_bbox as a list")
 
-    if net_coords_min_max:
-        if len(net_coords_min_max) != 4:
-            raise ValueError("Please provide net_coords_min_max as a list with 4 elements"
+    if net_bbox:
+        if len(net_bbox) != 4:
+            raise ValueError("Please provide net_bbox as a list with 4 elements"
                              " [coord_x_min, coord_x_max, coord_y_min, coord_y_max]")
-        if not all(isinstance(coord, (int, float)) for coord in net_coords_min_max):
-            raise ValueError("Please provide net_coords_min_max as a list with 4 numeric elements")
+        if not all(isinstance(coord, (int, float)) for coord in net_bbox):
+            raise ValueError("Please provide net_bbox as a list with 4 numeric elements")
 
-        coord_x_min, coord_x_max, coord_y_min, coord_y_max = net_coords_min_max
+        coord_x_min, coord_x_max, coord_y_min, coord_y_max = net_bbox
 
     elif node_dict:
         coord_x_min, coord_x_max, coord_y_min, coord_y_max = _get_lng_lat_min_max(node_dict)
@@ -527,7 +527,7 @@ def net2grid(*,  # enforce the use of keyword arguments
     #     zone_id_flag += 1
 
     # if only min-max coordinates are provided, return zone_dict
-    if net_coords_min_max:
+    if net_bbox:
         return grid_dict
 
     # select zones that overlapping nodes geometry
